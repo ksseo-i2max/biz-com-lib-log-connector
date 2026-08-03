@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    mule-modules-parent 의 버전은 타깃 Mule Runtime 과 1:1 대응한다.
+      1.9.17  ->  mule.version 4.9.17
+                  mule.sdk.api.version 1.0.0
+                  java.release.version 17
+    즉 이 parent 를 쓰는 것만으로 JDK 17 / Runtime 4.9.17 타깃이 확정된다.
+  -->
+  <parent>
+    <groupId>org.mule.extensions</groupId>
+    <artifactId>mule-modules-parent</artifactId>
+    <version>1.9.17</version>
+  </parent>
+
+  <groupId>org.mycompany</groupId>
+  <artifactId>biz-com-lib-log-connector</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>mule-extension</packaging>
+
+  <name>Biz Com Log Connector</name>
+  <description>
+    로그 컨텍스트(Flow Version, Base Table Name, Trigger Type, Actor, Target App Name, Status)를
+    Mule 이벤트에 주입하는 커스텀 커넥터. Scope 와 Operation 두 가지 형태를 제공한다.
+  </description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
+
+  <!--
+    의존성 선언이 없는 것은 의도된 것이다. mule-modules-parent 1.9.17 이
+    아래를 모두 상속시켜 준다.
+      provided : mule-api, mule-extensions-api, mule-sdk-api, mule-core, ...
+      test     : mule-tests-functional, mule-tests-runner, mule-tests-unit,
+                 mule-tests-component-plugin
+    커넥터가 외부 라이브러리를 쓰게 되면 그때 여기에 추가한다.
+  -->
+
+  <repositories>
+    <repository>
+      <id>mulesoft-public</id>
+      <name>MuleSoft Public Repository</name>
+      <url>https://repository.mulesoft.org/nexus/content/repositories/public</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>mulesoft-public-plugins</id>
+      <name>MuleSoft Public Repository</name>
+      <url>https://repository.mulesoft.org/nexus/content/repositories/public</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
+
+</project>

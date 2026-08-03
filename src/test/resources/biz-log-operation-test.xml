@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:biz-log="http://www.mulesoft.org/schema/mule/biz-log"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/biz-log
+        http://www.mulesoft.org/schema/mule/biz-log/current/mule-biz-log.xsd">
+
+  <biz-log:config name="BizLog_Config"
+                  flowVersion="2.1.0"
+                  baseTableName="TB_IF_LOG_HIST"/>
+
+  <!-- (1) target 으로 지정한 variable 에 컨텍스트가 실리는지 -->
+  <flow name="operationStoresContextInVariable">
+    <biz-log:build-context config-ref="BizLog_Config"
+                           triggerType="SCHEDULE"
+                           actor="scheduler"
+                           targetAppName="SAP"
+                           status="RUNNING"
+                           target="ctx"/>
+    <set-payload value="#[
+      vars.ctx.flowVersion ++ '|' ++
+      vars.ctx.baseTableName ++ '|' ++
+      vars.ctx.triggerType ++ '|' ++
+      vars.ctx.actor ++ '|' ++
+      vars.ctx.targetAppName ++ '|' ++
+      vars.ctx.status
+    ]"/>
+  </flow>
+
+  <!--
+    (2) 메시지(payload + attributes) 가 완전히 교체된 뒤에도 vars.ctx 가 살아남는지.
+        Scope 의 attributes 방식과 대비되는 핵심 차이점이다.
+  -->
+  <flow name="variableSurvivesMessageReplacement">
+    <biz-log:build-context config-ref="BizLog_Config"
+                           triggerType="EVENT"
+                           actor="integration-user"
+                           targetAppName="LEGACY"
+                           status="DONE"
+                           target="ctx"/>
+
+    <!-- 메시지 전체 교체를 모사 -->
+    <set-payload value="#[{ replaced: true }]"/>
+    <remove-variable variableName="doesNotExist"/>
+
+    <set-payload value="#[vars.ctx.actor ++ '|' ++ vars.ctx.status]"/>
+  </flow>
+
+  <!-- (3) target 없이 쓰면 payload 로 나오는지 -->
+  <flow name="operationWithoutTargetReturnsPayload">
+    <biz-log:build-context config-ref="BizLog_Config"
+                           triggerType="MANUAL"
+                           actor="ops"
+                           targetAppName="ADMIN"
+                           status="READY"/>
+    <set-payload value="#[payload.actor ++ '|' ++ payload.targetAppName]"/>
+  </flow>
+
+</mule>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:biz-log="http://www.mulesoft.org/schema/mule/biz-log"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/biz-log
+        http://www.mulesoft.org/schema/mule/biz-log/current/mule-biz-log.xsd">
+
+  <biz-log:config name="BizLog_Config"
+                  flowVersion="1.0.0"
+                  baseTableName="TB_IF_LOG"/>
+
+  <!-- actor 를 공백으로 두어 BIZ-LOG:INVALID_CONTEXT 검증용 -->
+  <biz-log:config name="BizLog_Config_Blank"
+                  flowVersion=" "
+                  baseTableName="TB_IF_LOG"/>
+
+  <!--
+    (1) config 2개 + attribute 4개가 모두 attributes 로 노출되는지.
+        스코프 안에서 payload 를 직접 만들어 반환하므로 스코프의 결과 payload 가 그대로 나온다.
+  -->
+  <flow name="scopeExposesAttributes">
+    <biz-log:with-context config-ref="BizLog_Config"
+                          triggerType="EVENT"
+                          actor="batch-user"
+                          targetAppName="SFDC"
+                          status="READY">
+      <set-payload value="#[
+        attributes.flowVersion ++ '|' ++
+        attributes.baseTableName ++ '|' ++
+        attributes.triggerType ++ '|' ++
+        attributes.actor ++ '|' ++
+        attributes.targetAppName ++ '|' ++
+        attributes.status
+      ]"/>
+    </biz-log:with-context>
+  </flow>
+
+  <!-- (2) 원본 payload 가 보존되는지 (pass-through) -->
+  <flow name="scopePreservesPayload">
+    <biz-log:with-context config-ref="BizLog_Config"
+                          triggerType="MANUAL"
+                          actor="tester"
+                          targetAppName="LOCAL"
+                          status="RUNNING">
+      <logger level="DEBUG" message="#[attributes.actor]"/>
+    </biz-log:with-context>
+  </flow>
+
+  <!--
+    (3) 스코프 내부 예외가 원본 에러 타입으로 전파되는지.
+        내부에서 EXPRESSION 에러를 유발하고, 플로우 레벨 error-handler 가
+        잡은 에러 타입 문자열을 payload 로 돌려준다.
+        BIZ-LOG:* 로 감싸이면 이 단정이 깨진다.
+  -->
+  <flow name="scopePropagatesInnerErrorType">
+    <biz-log:with-context config-ref="BizLog_Config"
+                          triggerType="EVENT"
+                          actor="batch-user"
+                          targetAppName="SFDC"
+                          status="FAILED">
+      <set-payload value="#[1 / 0 as String {format: 'x'}]"/>
+    </biz-log:with-context>
+    <error-handler>
+      <on-error-continue type="ANY">
+        <set-payload value="#[error.errorType.namespace ++ ':' ++ error.errorType.identifier]"/>
+      </on-error-continue>
+    </error-handler>
+  </flow>
+
+  <!-- (4) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
+  <flow name="scopeRejectsBlankParameter">
+    <biz-log:with-context config-ref="BizLog_Config_Blank"
+                          triggerType="EVENT"
+                          actor="batch-user"
+                          targetAppName="SFDC"
+                          status="READY">
+      <logger level="DEBUG" message="여기까지 오면 안 된다"/>
+    </biz-log:with-context>
+    <error-handler>
+      <on-error-continue type="ANY">
+        <set-payload value="#[error.errorType.namespace ++ ':' ++ error.errorType.identifier]"/>
+      </on-error-continue>
+    </error-handler>
+  </flow>
+
+</mule>
