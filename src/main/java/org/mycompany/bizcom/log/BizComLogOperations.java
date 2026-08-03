@@ -7,7 +7,6 @@ import org.mule.sdk.api.annotation.error.Throws;
 import org.mule.sdk.api.annotation.param.Config;
 import org.mule.sdk.api.annotation.param.MediaType;
 import org.mule.sdk.api.annotation.param.Optional;
-import org.mule.sdk.api.annotation.param.Parameter;
 import org.mule.sdk.api.annotation.param.ParameterGroup;
 import org.mule.sdk.api.annotation.param.display.DisplayName;
 import org.mule.sdk.api.annotation.param.display.Summary;
@@ -17,6 +16,7 @@ import org.mule.sdk.api.runtime.route.Chain;
 import org.mycompany.bizcom.log.error.LogErrorProvider;
 import org.mycompany.bizcom.log.model.LogContext;
 import org.mycompany.bizcom.log.param.LogContextParameters;
+import org.mycompany.bizcom.log.param.LogTargetParameters;
 
 /**
  * 커넥터가 제공하는 컴포넌트 2종.
@@ -24,9 +24,15 @@ import org.mycompany.bizcom.log.param.LogContextParameters;
  * <p>모든 타입은 {@code org.mule.sdk.api.*} 로 통일했다. 하나의 메서드 시그니처 안에서
  * {@code sdk-api} 와 구 {@code extensions-api} 타입을 섞으면 SDK 가 extension model
  * 생성 단계에서 거부한다.
+ *
+ * <p><b>주의 — Operation 메서드 인자에 {@code @Parameter} 를 붙이지 말 것.</b>
+ * {@code sdk-api} 의 {@code @Parameter} 는 {@code @Target({FIELD})} 로 필드 전용이다
+ * (구 {@code extensions-api} 와 달라진 부분). Operation 메서드 인자는 암시적으로
+ * 파라미터로 인식되므로 애노테이션이 필요 없다.
  */
 public class BizComLogOperations {
 
+  private static final String TARGET_GROUP = "Log Target";
   private static final String CONTEXT_GROUP = "Context";
 
   /**
@@ -34,7 +40,7 @@ public class BizComLogOperations {
    * attributes 로 주입한다.
    *
    * <pre>{@code
-   * <biz-log:with-context config-ref="BizLog_Config"
+   * <biz-log:with-context flowVersion="1.0.0" baseTableName="TB_IF_LOG"
    *     triggerType="EVENT" actor="batch-user"
    *     targetAppName="SFDC" status="READY">
    *   <logger message="#[attributes.actor]"/>
@@ -42,14 +48,20 @@ public class BizComLogOperations {
    * </biz-log:with-context>
    * }</pre>
    *
-   * <p>설계상 두 가지가 중요하다.
+   * <p>설계상 세 가지가 중요하다.
    *
-   * <p>1. {@code payload} 파라미터. {@link Chain} 에 attributes 를 실어 보내려면 payload 도
+   * <p>1. <b>{@code config-ref} 가 없다.</b> Mule SDK 는 Scope 의 config 바인딩을 금지한다
+   * ({@code @Config} 를 붙이면 {@code IllegalOperationModelDefinitionException: Scope
+   * 'withContext' requires a config, but that is not allowed} 로 빌드 실패). 그래서
+   * {@code flowVersion} / {@code baseTableName} 을 {@link LogTargetParameters} 로 직접
+   * 받는다. 앱마다 한 번만 정하려면 {@code ${...}} property placeholder 를 쓰면 된다.
+   *
+   * <p>2. {@code payload} 파라미터. {@link Chain} 에 attributes 를 실어 보내려면 payload 도
    * 함께 넘겨야 하는데, 여기에 임의 값을 넣으면 사용자의 원본 payload 가 조용히 사라진다.
    * {@code #[payload]} 를 기본값으로 받아 원본 payload 와 media type 을 그대로 되돌려주어
    * pass-through 를 보장한다. 기본값이 있으므로 사용자가 DSL 에 명시할 필요는 없다.
    *
-   * <p>2. 에러 전파. 체인 내부 예외는 감싸지 않고 {@code callback.error(throwable)} 로
+   * <p>3. 에러 전파. 체인 내부 예외는 감싸지 않고 {@code callback.error(throwable)} 로
    * 그대로 넘긴다. 그래야 원본 에러 타입이 유지되어 사용자의 {@code <error-handler>} 가
    * {@code HTTP:CONNECTIVITY} 등을 정상적으로 잡을 수 있다.
    *
@@ -63,15 +75,15 @@ public class BizComLogOperations {
   @Summary("로그 컨텍스트를 attributes 로 주입한 상태로 하위 컴포넌트를 실행한다")
   @MediaType(value = ANY, strict = false)
   @Throws(LogErrorProvider.class)
-  public void withContext(@Config BizComLogConfiguration config,
+  public void withContext(@ParameterGroup(name = TARGET_GROUP) LogTargetParameters target,
                           @ParameterGroup(name = CONTEXT_GROUP) LogContextParameters params,
-                          @Parameter @Optional(defaultValue = Optional.PAYLOAD)
+                          @Optional(defaultValue = Optional.PAYLOAD)
                           @Summary("체인으로 그대로 전달할 payload. 기본값은 현재 payload 다.")
                           TypedValue<Object> payload,
                           Chain operations,
                           CompletionCallback<Object, Object> callback) {
 
-    LogContext context = LogContext.of(config, params);
+    LogContext context = LogContext.of(target, params);
 
     Result<Object, Object> input = Result.<Object, Object>builder()
         .output(payload.getValue())
@@ -88,6 +100,9 @@ public class BizComLogOperations {
   /**
    * <b>Operation</b> — 로그 컨텍스트를 만들어 반환한다. {@code target} 과 함께 쓰면
    * 진짜 flow variable 이 되어 메시지가 교체되어도 살아남는다.
+   *
+   * <p>Operation 은 config 바인딩이 허용되므로 이 경로에서는 {@code flowVersion} /
+   * {@code baseTableName} 을 Configuration 에서 가져온다.
    *
    * <pre>{@code
    * <biz-log:build-context config-ref="BizLog_Config"

@@ -32,6 +32,17 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <!--
+      functional test (MuleArtifactFunctionalTestCase) 는 테스트 러너가 격리된 컨테이너
+      클래스로더를 구성하기 위해 com.mulesoft.mule.distributions:mule-runtime-apis-split-loader-bom
+      을 요구한다. 이 아티팩트는 MuleSoft EE 리포지터리에만 있고 (public: 404, releases-ee: 401)
+      엔터프라이즈 자격증명이 필요하다.
+
+      따라서 기본 빌드에서는 제외하고, 자격증명이 설정된 환경에서만 실행한다.
+          mvn test -Pfunctional-tests
+    -->
+    <functionalTestExclude>**/*FunctionalTestCase.java</functionalTestExclude>
   </properties>
 
   <!--
@@ -42,6 +53,30 @@
                  mule-tests-component-plugin
     커넥터가 외부 라이브러리를 쓰게 되면 그때 여기에 추가한다.
   -->
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>${functionalTestExclude}</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <!-- EE 자격증명이 있는 환경에서 functional test 까지 실행: mvn verify -Pfunctional-tests -->
+      <id>functional-tests</id>
+      <properties>
+        <functionalTestExclude>**/NoTestsExcluded.java</functionalTestExclude>
+      </properties>
+    </profile>
+  </profiles>
 
   <repositories>
     <repository>

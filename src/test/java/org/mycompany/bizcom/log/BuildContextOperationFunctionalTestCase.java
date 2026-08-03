@@ -13,7 +13,7 @@ import org.mule.runtime.core.api.event.CoreEvent;
  * <p>Scope 의 attributes 방식과 달리 {@code target} 으로 저장된 flow variable 은
  * 메시지가 교체되어도 살아남아야 한다 — 하이브리드 설계의 존재 이유다.
  */
-public class BuildContextOperationTestCase extends MuleArtifactFunctionalTestCase {
+public class BuildContextOperationFunctionalTestCase extends MuleArtifactFunctionalTestCase {
 
   @Override
   protected String getConfigFile() {

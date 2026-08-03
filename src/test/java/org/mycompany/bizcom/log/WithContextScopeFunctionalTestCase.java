@@ -16,7 +16,7 @@ import org.mule.runtime.core.api.event.CoreEvent;
  * 잡은 에러 타입 문자열을 payload 로 되돌려 단정한다. 의존하는 테스트 API 가 줄어들고,
  * 실제 사용자가 겪는 경로(error-handler 통과)를 그대로 검증할 수 있다.
  */
-public class WithContextScopeTestCase extends MuleArtifactFunctionalTestCase {
+public class WithContextScopeFunctionalTestCase extends MuleArtifactFunctionalTestCase {
 
   @Override
   protected String getConfigFile() {

@@ -10,11 +10,12 @@ import org.mule.sdk.api.exception.ModuleException;
 import org.mycompany.bizcom.log.BizComLogConfiguration;
 import org.mycompany.bizcom.log.error.LogErrorType;
 import org.mycompany.bizcom.log.param.LogContextParameters;
+import org.mycompany.bizcom.log.param.LogTargetParameters;
 import org.mycompany.bizcom.log.param.Status;
 import org.mycompany.bizcom.log.param.TriggerType;
 
 /**
- * Configuration 값 2개와 Scope/Operation 파라미터 4개를 합친 로그 컨텍스트.
+ * 로그 대상 정보 2개와 컨텍스트 파라미터 4개를 합친 로그 컨텍스트.
  *
  * <p>Scope 에서는 메시지의 <b>attributes</b> 로, Operation 에서는 {@code target} 을 통해
  * <b>flow variable</b> 로 실려 나간다. 두 경로 모두 동일한 타입이므로 DataWeave 접근
@@ -39,12 +40,12 @@ public class LogContext implements Serializable {
   private final String targetAppName;
   private final Status status;
 
-  public LogContext(String flowVersion,
-                    String baseTableName,
-                    TriggerType triggerType,
-                    String actor,
-                    String targetAppName,
-                    Status status) {
+  private LogContext(String flowVersion,
+                     String baseTableName,
+                     TriggerType triggerType,
+                     String actor,
+                     String targetAppName,
+                     Status status) {
     this.flowVersion = flowVersion;
     this.baseTableName = baseTableName;
     this.triggerType = triggerType;
@@ -54,22 +55,45 @@ public class LogContext implements Serializable {
   }
 
   /**
-   * Configuration 과 파라미터 그룹으로부터 컨텍스트를 만든다.
+   * 정규 팩토리. 아래 두 오버로드가 모두 이 메서드로 위임하므로 검증 규칙이 한 곳에만 있다.
    *
    * <p>Mule 은 required 파라미터의 <i>존재</i>만 보장하므로 빈 문자열은 통과한다.
    * 여기서 공백 여부를 검증해 {@link LogErrorType#INVALID_CONTEXT} 로 승격시킨다.
    *
    * @throws ModuleException {@code BIZ-LOG:INVALID_CONTEXT} — 문자열 파라미터가 공백일 때
    */
-  public static LogContext of(BizComLogConfiguration config, LogContextParameters params) {
-    requireNonBlank(config.getFlowVersion(), "flowVersion");
-    requireNonBlank(config.getBaseTableName(), "baseTableName");
-    requireNonBlank(params.getActor(), "actor");
-    requireNonBlank(params.getTargetAppName(), "targetAppName");
+  public static LogContext of(String flowVersion,
+                              String baseTableName,
+                              TriggerType triggerType,
+                              String actor,
+                              String targetAppName,
+                              Status status) {
+    requireNonBlank(flowVersion, "flowVersion");
+    requireNonBlank(baseTableName, "baseTableName");
+    requireNonBlank(actor, "actor");
+    requireNonBlank(targetAppName, "targetAppName");
 
-    return new LogContext(
-        config.getFlowVersion(),
+    return new LogContext(flowVersion, baseTableName, triggerType, actor, targetAppName, status);
+  }
+
+  /** Operation({@code build-context}) 경로 — 로그 대상 정보를 Configuration 에서 가져온다. */
+  public static LogContext of(BizComLogConfiguration config, LogContextParameters params) {
+    return of(config.getFlowVersion(),
         config.getBaseTableName(),
+        params.getTriggerType(),
+        params.getActor(),
+        params.getTargetAppName(),
+        params.getStatus());
+  }
+
+  /**
+   * Scope({@code with-context}) 경로 — Scope 는 config 에 바인딩될 수 없으므로
+   * 로그 대상 정보를 자체 파라미터로 받는다. 자세한 이유는
+   * {@link LogTargetParameters} 참고.
+   */
+  public static LogContext of(LogTargetParameters target, LogContextParameters params) {
+    return of(target.getFlowVersion(),
+        target.getBaseTableName(),
         params.getTriggerType(),
         params.getActor(),
         params.getTargetAppName(),
