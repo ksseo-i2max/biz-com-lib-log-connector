@@ -14,7 +14,8 @@ import static org.mycompany.bizcom.log.param.Status.SUCCESS;
 import static org.mycompany.bizcom.log.param.TriggerType.API;
 import static org.mycompany.bizcom.log.param.TriggerType.BATCH;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 
 import org.junit.Test;
@@ -33,7 +34,8 @@ import org.mycompany.bizcom.log.error.LogErrorType;
  */
 public class LogContextTestCase {
 
-  private static final LocalDateTime FIXED = LocalDateTime.of(2026, 8, 4, 10, 15, 30, 123_000_000);
+  private static final OffsetDateTime FIXED =
+      OffsetDateTime.of(2026, 8, 4, 10, 15, 30, 123_000_000, ZoneOffset.UTC);
 
   /** 필수값만 채운 빌더. 각 테스트가 필요한 것만 덧붙인다. */
   private static LogContext.Builder valid() {
@@ -75,7 +77,7 @@ public class LogContextTestCase {
   /** {@code startTime} 을 지정하지 않으면 빌드 시점의 현재 시각으로 채워진다. */
   @Test
   public void stampsCurrentTimeWhenStartTimeOmitted() {
-    LocalDateTime before = LocalDateTime.now();
+    OffsetDateTime before = OffsetDateTime.now(ZoneOffset.UTC);
     LogContext ctx = LogContext.builder()
         .flowVersion("v1")
         .baseTableName("MULE_BIZ_INTERFACE_LOG")
@@ -84,7 +86,7 @@ public class LogContextTestCase {
         .targetAppName("biz-com-exp-listener")
         .status(SUCCESS)
         .build();
-    LocalDateTime after = LocalDateTime.now();
+    OffsetDateTime after = OffsetDateTime.now(ZoneOffset.UTC);
 
     assertThat(ctx.getStartTime(), is(notNullValue()));
     assertFalse("startTime 이 빌드 이전이면 안 된다", ctx.getStartTime().isBefore(before));
@@ -98,7 +100,33 @@ public class LogContextTestCase {
   }
 
   /**
-   * {@code startTime} 은 {@link LocalDateTime} 객체로, 원본 메시지는 변환 없이 그대로 남긴다.
+   * 자동 스탬핑은 <b>UTC 기준</b>이어야 한다. 시스템 로컬 타임존을 쓰면 여러 환경 / 리전의
+   * 로그를 한 테이블에서 비교할 수 없다.
+   *
+   * <p>오프셋만 보는 것으로는 부족하다 — 로컬 타임존이 마침 UTC 인 머신에서는
+   * {@code now()} 를 써도 통과해 버린다. 그래서 값 자체가 UTC 기준 시각과 맞는지도 본다.
+   */
+  @Test
+  public void stampsStartTimeInUtc() {
+    OffsetDateTime utcBefore = OffsetDateTime.now(ZoneOffset.UTC);
+    OffsetDateTime stamped = LogContext.builder()
+        .flowVersion("v1")
+        .baseTableName("MULE_BIZ_INTERFACE_LOG")
+        .triggerType(API)
+        .actor("SFDC")
+        .targetAppName("biz-com-exp-listener")
+        .status(SUCCESS)
+        .build()
+        .getStartTime();
+    OffsetDateTime utcAfter = OffsetDateTime.now(ZoneOffset.UTC);
+
+    assertThat("오프셋이 Z 여야 한다", stamped.getOffset(), is(ZoneOffset.UTC));
+    assertFalse("UTC 기준 시각보다 이르면 안 된다", stamped.isBefore(utcBefore));
+    assertFalse("UTC 기준 시각보다 늦으면 안 된다", stamped.isAfter(utcAfter));
+  }
+
+  /**
+   * {@code startTime} 은 {@link OffsetDateTime} 객체로, 원본 메시지는 변환 없이 그대로 남긴다.
    * JDBC 가 시각을 TIMESTAMP 로 바인딩하므로 문자열로 바꾸면 타입 정보를 잃는다.
    */
   @Test

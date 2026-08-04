@@ -8,7 +8,7 @@
 | Mule Runtime | 4.9.17 |
 | JDK | 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
-| 현재 버전 | `1.0.6-SNAPSHOT` |
+| 현재 버전 | `1.0.7-SNAPSHOT` |
 | XML prefix | `biz-log` |
 | Base package | `org.mycompany.bizcom.log` |
 
@@ -169,7 +169,7 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 | `targetAppName` | String | 파라미터 (기본 `biz-com-exp-listener`) |
 | `status` | `Status` | 파라미터 (기본 `SUCCESS`) |
 | `correlationId` | String | **기존** Mule 이벤트의 correlation id |
-| `startTime` | `LocalDateTime` | 커넥터가 자동 기록 |
+| `startTime` | `OffsetDateTime` | 커넥터가 자동 기록 (**UTC**) |
 | `includeRequestPayload` | boolean | 파라미터 (필수) |
 | `includeResponsePayload` | boolean | 파라미터 (필수) |
 | `requestPayload` | Object | `includeRequestPayload=true` 일 때만 진입 직전 payload |
@@ -212,10 +212,25 @@ configurationProperties.resolveStringProperty("app.name").orElse(null)
 프로퍼티가 없는 환경에서는 `null` 이 됩니다. 자동 파생 값 때문에 로깅이 실패하면 안 되므로
 검증하지 않습니다 (`correlationId` 와 같은 취급).
 
-### startTime
+### startTime — UTC 기준
 
-컨텍스트 생성 시각이 `LocalDateTime.now()` 로 채워집니다. Scope 의 경우 **하위 체인 실행
-전**, 즉 스코프 진입 시각입니다.
+컨텍스트 생성 시각이 `OffsetDateTime.now(ZoneOffset.UTC)` 로 채워집니다. Scope 의 경우
+**하위 체인 실행 전**, 즉 스코프 진입 시각입니다.
+
+타입이 `OffsetDateTime` 이라 **값 자체가 `Z` 오프셋을 들고 다닙니다.**
+
+```
+2026-08-04T06:15:30.123Z
+```
+
+`LocalDateTime` 을 쓰면 서버 로컬 타임존으로 찍히면서 타임존 정보도 안 남아, 여러 환경/
+리전의 로그를 한 테이블에서 비교할 수 없습니다. 그래서 UTC 로 고정하고 오프셋을 값에
+포함시켰습니다. 앞으로 추가되는 시각 항목도 같은 기준을 따릅니다
+(`LogContext.LOG_TIME_ZONE` 한 곳에서 관리).
+
+> **DB 컬럼 타입 확인 필요.** JDBC 는 `OffsetDateTime` 을 `TIMESTAMP WITH TIME ZONE` 으로
+> 바인딩합니다. `MULE_BIZ_INTERFACE_LOG` 의 대상 컬럼이 오프셋 없는 `TIMESTAMP` 라면
+> 넣기 전에 `toLocalDateTime()` 하거나 DataWeave 에서 포맷을 맞춰야 합니다.
 
 처리 소요시간을 재려면 종료 시각이 필요합니다. 스코프가 체인 실행을 마친 뒤 `endTime` 을
 채우는 방식이 되며, 그 값은 체인 **안에서는** 볼 수 없고 스코프가 반환하는 attributes 에만
@@ -376,7 +391,7 @@ mvn verify -Pfunctional-tests
 기능이 추가될 때마다 **patch 자리를 하나** 올립니다.
 
 ```
-1.0.6-SNAPSHOT  →  1.0.6-SNAPSHOT  →  1.0.6-SNAPSHOT  ...
+1.0.7-SNAPSHOT  →  1.0.7-SNAPSHOT  →  1.0.7-SNAPSHOT  ...
 ```
 
 `minor` / `major` 자리는 호환성이 깨지는 변경에 남겨 둡니다. 예를 들어 enum 상수 제거,
@@ -391,7 +406,7 @@ mvn verify -Pfunctional-tests
 <dependency>
   <groupId>org.mycompany</groupId>
   <artifactId>biz-com-lib-log-connector</artifactId>
-  <version>1.0.6-SNAPSHOT</version>
+  <version>1.0.7-SNAPSHOT</version>
   <classifier>mule-plugin</classifier>
 </dependency>
 ```
