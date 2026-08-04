@@ -1,7 +1,7 @@
 package org.mycompany.bizcom.log.model;
 
 import java.io.Serializable;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -29,9 +29,9 @@ import org.mycompany.bizcom.log.param.TriggerType;
  *   Operation : #[vars.ctx.actor],   #[vars.ctx.startTime],   #[vars.ctx.correlationId]
  * </pre>
  *
- * <p><b>{@code startTime}</b> 은 컨텍스트 생성 시각이며 <b>UTC 기준</b>이다
- * ({@link OffsetDateTime} 이라 값이 {@code Z} 오프셋을 들고 다닌다). 빌더에서 지정하지
- * 않으면 {@code OffsetDateTime.now(ZoneOffset.UTC)} 로 채워진다.
+ * <p><b>{@code startTime}</b> 은 컨텍스트 생성 시각이며 <b>UTC 기준</b>이다. 빌더에서
+ * 지정하지 않으면 {@code LocalDateTime.now(ZoneOffset.UTC)} 로 채워진다. 타입이
+ * {@code LocalDateTime} 이므로 값 자체에는 오프셋이 남지 않는다.
  *
  * <p><b>{@code sourceAppName}</b> 은 <b>DSL 파라미터가 아니다.</b> 커넥터가
  * {@code ConfigurationProperties} 를 주입받아 {@code app.name} 프로퍼티에서 읽어 채우므로
@@ -67,8 +67,11 @@ public class LogContext implements Serializable {
 
   /**
    * 컨텍스트의 모든 시각은 UTC 기준으로 찍는다. 서버 로컬 타임존에 따라 값이 달라지면
-   * 여러 환경/리전의 로그를 한 테이블에서 비교할 수 없다. { OffsetDateTime} 을 쓰므로
-   * 값 자체가 { Z} 오프셋을 들고 다녀 "이게 UTC 인가" 를 되묻을 일이 없다.
+   * 여러 환경 / 리전의 로그를 한 테이블에서 비교할 수 없다.
+   *
+   * <p><b>{@link LocalDateTime} 은 오프셋을 담지 않으므로 값만 보고 UTC 인지 알 수 없다.</b>
+   * "이 커넥터의 시각은 UTC" 라는 약속으로만 성립하니, 컬럼 주석이나 API 문서에 함께
+   * 남겨 두는 편이 안전하다. 값에 오프셋을 새기려면 {@code OffsetDateTime} 을 써야 한다.
    */
   private static final ZoneOffset LOG_TIME_ZONE = ZoneOffset.UTC;
 
@@ -80,7 +83,7 @@ public class LogContext implements Serializable {
   private final String targetAppName;
   private final Status status;
   private final String correlationId;
-  private final OffsetDateTime startTime;
+  private final LocalDateTime startTime;
   private final boolean includeRequestPayload;
   private final boolean includeResponsePayload;
   private final Object requestPayload;
@@ -173,7 +176,7 @@ public class LogContext implements Serializable {
   }
 
   /** 처리 시작 시각 (UTC). 컨텍스트가 만들어진 시점이다. */
-  public OffsetDateTime getStartTime() {
+  public LocalDateTime getStartTime() {
     return startTime;
   }
 
@@ -214,10 +217,9 @@ public class LogContext implements Serializable {
    * 삽입 순서가 유지되도록 {@link LinkedHashMap} 을 사용한다.
    *
    * <p>enum 은 {@code name()} 문자열로 바꾸지만 {@code startTime} 은
-   * {@link OffsetDateTime} 객체를 그대로 둔다. 문자열로 바꾸면 타입 정보를 잃는다.
-   * JDBC 는 {@code OffsetDateTime} 을 {@code TIMESTAMP WITH TIME ZONE} 으로 바인딩한다.
-   * 대상 컬럼이 오프셋 없는 {@code TIMESTAMP} 면 호출측에서 {@code toLocalDateTime()} 하거나
-   * DataWeave 에서 포맷을 맞춰 넣어야 한다.
+   * {@link LocalDateTime} 객체를 그대로 둔다. 문자열로 바꾸면 타입 정보를 잃는다.
+   * JDBC 는 {@code LocalDateTime} 을 오프셋 없는 {@code TIMESTAMP} 로 바인딩하므로
+   * 일반적인 로그 테이블 컬럼에 그대로 들어간다.
    * {@code originPayload} / {@code originAttributes} 도 변환하지 않고 그대로 둔다 —
    * 어떤 형태로 기록할지는 호출측이 결정할 일이다.
    */
@@ -316,7 +318,7 @@ public class LogContext implements Serializable {
     private String targetAppName;
     private Status status;
     private String correlationId;
-    private OffsetDateTime startTime;
+    private LocalDateTime startTime;
     private boolean includeRequestPayload;
     private boolean includeResponsePayload;
     private Object originPayload;
@@ -371,7 +373,7 @@ public class LogContext implements Serializable {
     }
 
     /** 지정하지 않으면 {@link #build()} 에서 현재 시각으로 채워진다. */
-    public Builder startTime(OffsetDateTime startTime) {
+    public Builder startTime(LocalDateTime startTime) {
       this.startTime = startTime;
       return this;
     }
@@ -421,7 +423,7 @@ public class LogContext implements Serializable {
      * {@code SUCCESS})이 있어 DSL 에서는 비지 않지만, 프로그램에서 직접 빌드하는 경로가
      * 있으므로 여기서 null 을 막아 <b>도메인 레벨 필수</b>를 보장한다.
      *
-     * <p>{@code startTime} 이 지정되지 않았으면 {@code OffsetDateTime.now(ZoneOffset.UTC)}
+     * <p>{@code startTime} 이 지정되지 않았으면 {@code LocalDateTime.now(ZoneOffset.UTC)}
      * 로 채운다 — UTC 기준이다.
      * {@code correlationId} 와 원본 메시지는 검증하지 않는다.
      *
@@ -437,7 +439,7 @@ public class LogContext implements Serializable {
       requirePresent(status, "status");
 
       if (startTime == null) {
-        startTime = OffsetDateTime.now(LOG_TIME_ZONE);
+        startTime = LocalDateTime.now(LOG_TIME_ZONE);
       }
 
       return new LogContext(this);

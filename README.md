@@ -8,7 +8,7 @@
 | Mule Runtime | 4.9.17 |
 | JDK | 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
-| 현재 버전 | `1.0.7-SNAPSHOT` |
+| 현재 버전 | `1.0.8-SNAPSHOT` |
 | XML prefix | `biz-log` |
 | Base package | `org.mycompany.bizcom.log` |
 
@@ -169,7 +169,7 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 | `targetAppName` | String | 파라미터 (기본 `biz-com-exp-listener`) |
 | `status` | `Status` | 파라미터 (기본 `SUCCESS`) |
 | `correlationId` | String | **기존** Mule 이벤트의 correlation id |
-| `startTime` | `OffsetDateTime` | 커넥터가 자동 기록 (**UTC**) |
+| `startTime` | `LocalDateTime` | 커넥터가 자동 기록 (**UTC 기준**) |
 | `includeRequestPayload` | boolean | 파라미터 (필수) |
 | `includeResponsePayload` | boolean | 파라미터 (필수) |
 | `requestPayload` | Object | `includeRequestPayload=true` 일 때만 진입 직전 payload |
@@ -391,7 +391,7 @@ mvn verify -Pfunctional-tests
 기능이 추가될 때마다 **patch 자리를 하나** 올립니다.
 
 ```
-1.0.7-SNAPSHOT  →  1.0.7-SNAPSHOT  →  1.0.7-SNAPSHOT  ...
+1.0.8-SNAPSHOT  →  1.0.8-SNAPSHOT  →  1.0.8-SNAPSHOT  ...
 ```
 
 `minor` / `major` 자리는 호환성이 깨지는 변경에 남겨 둡니다. 예를 들어 enum 상수 제거,
@@ -406,7 +406,7 @@ mvn verify -Pfunctional-tests
 <dependency>
   <groupId>org.mycompany</groupId>
   <artifactId>biz-com-lib-log-connector</artifactId>
-  <version>1.0.7-SNAPSHOT</version>
+  <version>1.0.8-SNAPSHOT</version>
   <classifier>mule-plugin</classifier>
 </dependency>
 ```
