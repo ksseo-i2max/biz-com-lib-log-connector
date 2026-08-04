@@ -31,9 +31,10 @@ import org.mycompany.bizcom.log.param.TriggerType;
  * <p><b>{@code startTime}</b> 은 컨텍스트 생성 시각이다. 빌더에서 지정하지 않으면
  * {@link LocalDateTime#now()} 로 채워진다.
  *
- * <p><b>{@code sourceAppName}</b> 은 DSL 기본값이 {@code #[p('app.name')]} 이므로 별도로
- * 지정하지 않으면 현재 Mule 앱 이름이 담긴다. 자동 파생 값이라 빌더에서 검증하지 않는다
- * ({@code correlationId} 와 같은 취급).
+ * <p><b>{@code sourceAppName}</b> 은 <b>DSL 파라미터가 아니다.</b> 커넥터가
+ * {@code ConfigurationProperties} 를 주입받아 {@code app.name} 프로퍼티에서 읽어 채우므로
+ * 사용자가 값을 지정할 여지가 없고 항상 현재 Mule 앱 이름이 기록된다. 자동 파생 값이라
+ * 빌더에서 검증하지 않는다 ({@code correlationId} 와 같은 취급).
  *
  * <p><b>{@code correlationId}</b> 는 새로 만들지 않고 <b>현재 Mule 이벤트의 correlation
  * id 를 그대로</b> 담는다. 커넥터가 {@code CorrelationInfo} 를 주입받아 채우므로, 같은
@@ -142,8 +143,8 @@ public class LogContext implements Serializable {
   }
 
   /**
-   * 호출 출발 애플리케이션 명. 기본값이 {@code #[p('app.name')]} 이므로 별도로 지정하지
-   * 않으면 현재 Mule 앱 이름이 담긴다.
+   * 호출 출발 애플리케이션 명. DSL 파라미터가 아니라 커넥터가 {@code app.name} 프로퍼티에서
+   * 읽어 채운다.
    */
   public String getSourceAppName() {
     return sourceAppName;
@@ -334,7 +335,7 @@ public class LogContext implements Serializable {
     }
 
     /**
-     * 호출 출발 애플리케이션 명. DSL 기본값이 {@code #[p('app.name')]} 이라 자동 파생
+     * 호출 출발 애플리케이션 명. 커넥터가 {@code app.name} 프로퍼티에서 읽어 넣는 자동 파생
      * 값이므로 {@link #build()} 에서 검증하지 않는다.
      */
     public Builder sourceAppName(String sourceAppName) {
@@ -393,7 +394,6 @@ public class LogContext implements Serializable {
     public Builder from(LogContextParameters params) {
       return triggerType(params.getTriggerType())
           .actor(params.getActor())
-          .sourceAppName(params.getSourceAppName())
           .targetAppName(params.getTargetAppName())
           .status(params.getStatus())
           .includeRequestPayload(params.isIncludeRequestPayload())

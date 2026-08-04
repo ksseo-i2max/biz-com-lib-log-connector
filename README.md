@@ -8,7 +8,7 @@
 | Mule Runtime | 4.9.17 |
 | JDK | 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
-| 현재 버전 | `1.0.5-SNAPSHOT` |
+| 현재 버전 | `1.0.6-SNAPSHOT` |
 | XML prefix | `biz-log` |
 | Base package | `org.mycompany.bizcom.log` |
 
@@ -54,10 +54,10 @@
 > 그래서 `flowVersion` / `baseTableName` 을 Scope 자체 파라미터로 받습니다. 앱마다 한 번만
 > 정하려면 위 예시처럼 `${...}` property placeholder 를 쓰면 됩니다.
 
-9개 파라미터 모두 기본값이 있어 속성 없이도 동작합니다.
+`includeRequestPayload` / `includeResponsePayload` 만 필수이고 나머지는 기본값이 있습니다.
 
 ```xml
-<biz-log:logging-context>
+<biz-log:logging-context includeRequestPayload="false" includeResponsePayload="false">
   ...
 </biz-log:logging-context>
 <!-- v1 / MULE_BIZ_INTERFACE_LOG / API / SFDC / biz-com-exp-listener / SUCCESS -->
@@ -110,19 +110,21 @@ Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값�
 |---|---|---|---|
 | `triggerType` | enum | `API` | `API` (외부 API 호출로 기동), `BATCH` (배치 / 스케줄러로 기동) |
 | `actor` | String | `SFDC` | 작업 주체 (사용자 ID 또는 시스템 계정) |
-| `sourceAppName` | String | `#[p('app.name')]` | 호출 출발 애플리케이션 명 |
 | `targetAppName` | String | `biz-com-exp-listener` | 연동 대상 애플리케이션 명 |
 | `status` | enum | `SUCCESS` | `SUCCESS` (정상 처리), `FAIL` (실패) |
-| `includeRequestPayload` | boolean | `false` | 진입 직전 payload 를 `requestPayload` 로 기록 |
-| `includeResponsePayload` | boolean | `false` | 응답 payload 기록 여부 (아래 참고) |
+| `includeRequestPayload` | boolean | **없음 (필수)** | 진입 직전 payload 를 `requestPayload` 로 기록 |
+| `includeResponsePayload` | boolean | **없음 (필수)** | 응답 payload 기록 여부 (아래 참고) |
 
-`sourceAppName` 만 기본값이 **리터럴이 아니라 표현식**입니다. `p('app.name')` 은 Mule 이
-배포된 애플리케이션 이름을 돌려주므로, 커넥터를 쓰는 앱이 자기 이름을 따로 적지 않아도
-출발지가 채워집니다.
+`sourceAppName` 은 **DSL 파라미터가 아닙니다** — 커넥터가 Java 에서 `app.name` 프로퍼티를
+읽어 채웁니다. 아래 "sourceAppName" 절을 참고하세요.
+
+`includeRequestPayload` / `includeResponsePayload` 는 **필수 속성**이라 항상 명시해야
+합니다. Mule SDK 에서 필수와 기본값은 동시에 성립하지 않으므로 스키마 기본값은 없습니다.
 
 ```xml
-<biz-log:logging-context>                              <!-- sourceAppName = 현재 앱 이름 -->
-<biz-log:logging-context sourceAppName="biz-com-sys-caller">   <!-- 명시하면 덮어씀 -->
+<biz-log:logging-context includeRequestPayload="false" includeResponsePayload="false">
+  ...
+</biz-log:logging-context>
 ```
 
 enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하거나 제거하면 이미 배포된
@@ -133,11 +135,11 @@ enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하
 Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(defaultValue = ...)` 을
 붙이면 스키마상 required 가 아니게 되어 XML 에서 생략할 수 있습니다.
 
-**9개 파라미터 모두 기본값이 있으므로 스키마 레벨 필수는 하나도 없습니다.** 속성 없이도
-컴포넌트가 동작합니다.
+`includeRequestPayload` / `includeResponsePayload` 두 개만 **스키마 레벨 필수**이고
+나머지는 기본값이 있습니다.
 
 ```xml
-<biz-log:logging-context>
+<biz-log:logging-context includeRequestPayload="false" includeResponsePayload="false">
   ...
 </biz-log:logging-context>
 <!-- v1 / MULE_BIZ_INTERFACE_LOG / API / SFDC / biz-com-exp-listener / SUCCESS -->
@@ -163,13 +165,13 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 | `baseTableName` | String | 파라미터 / Configuration (기본 `MULE_BIZ_INTERFACE_LOG`) |
 | `triggerType` | `TriggerType` | 파라미터 (기본 `API`) |
 | `actor` | String | 파라미터 (기본 `SFDC`) |
-| `sourceAppName` | String | 파라미터 (기본 `#[p('app.name')]` = 현재 Mule 앱 이름) |
+| `sourceAppName` | String | **커넥터가 `app.name` 프로퍼티에서 자동 기록** (DSL 파라미터 아님) |
 | `targetAppName` | String | 파라미터 (기본 `biz-com-exp-listener`) |
 | `status` | `Status` | 파라미터 (기본 `SUCCESS`) |
 | `correlationId` | String | **기존** Mule 이벤트의 correlation id |
 | `startTime` | `LocalDateTime` | 커넥터가 자동 기록 |
-| `includeRequestPayload` | boolean | 파라미터 (기본 `false`) |
-| `includeResponsePayload` | boolean | 파라미터 (기본 `false`) |
+| `includeRequestPayload` | boolean | 파라미터 (필수) |
+| `includeResponsePayload` | boolean | 파라미터 (필수) |
 | `requestPayload` | Object | `includeRequestPayload=true` 일 때만 진입 직전 payload |
 | `originPayload` | Object | 컴포넌트 진입 **전** payload |
 | `originAttributes` | Object | 컴포넌트 진입 **전** attributes |
@@ -194,6 +196,22 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 동일합니다. HTTP Listener 는 요청의 `X-Correlation-ID` 헤더를 이 값으로 받아들이므로
 호출측 시스템의 추적 id 와도 이어집니다.
 
+### sourceAppName — Java 에서 채웁니다
+
+DSL 파라미터로 노출하지 않습니다. 커넥터가 `ConfigurationProperties` 를 주입받아
+`app.name` 프로퍼티에서 읽어 채우므로 **사용자가 값을 지정할 여지가 없고 항상 현재 Mule
+앱 이름이 기록됩니다.**
+
+```java
+@Inject
+private ConfigurationProperties configurationProperties;
+// ...
+configurationProperties.resolveStringProperty("app.name").orElse(null)
+```
+
+프로퍼티가 없는 환경에서는 `null` 이 됩니다. 자동 파생 값 때문에 로깅이 실패하면 안 되므로
+검증하지 않습니다 (`correlationId` 와 같은 취급).
+
 ### startTime
 
 컨텍스트 생성 시각이 `LocalDateTime.now()` 로 채워집니다. Scope 의 경우 **하위 체인 실행
@@ -210,7 +228,7 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 민감정보 노출 비용이 있는 선택이라 명시적으로 켜야 담기게 했습니다.
 
 ```xml
-<biz-log:logging-context includeRequestPayload="true">
+<biz-log:logging-context includeRequestPayload="true" includeResponsePayload="false">
   <logger message="#[attributes.requestPayload]"/>
 </biz-log:logging-context>
 ```
@@ -358,7 +376,7 @@ mvn verify -Pfunctional-tests
 기능이 추가될 때마다 **patch 자리를 하나** 올립니다.
 
 ```
-1.0.5-SNAPSHOT  →  1.0.5-SNAPSHOT  →  1.0.5-SNAPSHOT  ...
+1.0.6-SNAPSHOT  →  1.0.6-SNAPSHOT  →  1.0.6-SNAPSHOT  ...
 ```
 
 `minor` / `major` 자리는 호환성이 깨지는 변경에 남겨 둡니다. 예를 들어 enum 상수 제거,
@@ -373,7 +391,7 @@ mvn verify -Pfunctional-tests
 <dependency>
   <groupId>org.mycompany</groupId>
   <artifactId>biz-com-lib-log-connector</artifactId>
-  <version>1.0.5-SNAPSHOT</version>
+  <version>1.0.6-SNAPSHOT</version>
   <classifier>mule-plugin</classifier>
 </dependency>
 ```

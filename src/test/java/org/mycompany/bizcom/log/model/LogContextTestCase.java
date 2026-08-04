@@ -191,9 +191,12 @@ public class LogContextTestCase {
         ctx.getOriginPayload(), is((Object) "REQUEST-BODY"));
   }
 
-  /** 두 플래그 모두 기본이 꺼짐이다. 본문 기록은 명시적으로 켜야 한다. */
+  /**
+   * DSL 에서는 두 플래그가 필수 속성이지만, 빌더에서 지정하지 않으면 primitive boolean
+   * 기본값인 {@code false} 가 된다 — 프로그램에서 직접 빌드하는 경로의 안전한 기본이다.
+   */
   @Test
-  public void payloadFlagsDefaultToFalse() {
+  public void builderLeavesPayloadFlagsOffWhenUnset() {
     LogContext ctx = LogContext.builder()
         .flowVersion("v1")
         .baseTableName("MULE_BIZ_INTERFACE_LOG")

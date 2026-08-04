@@ -93,8 +93,9 @@ public class LoggingContextScopeFunctionalTestCase extends MuleArtifactFunctiona
   }
 
   /**
-   * {@code sourceAppName} 은 DSL 기본값 {@code #[p('app.name')]} 으로 채워져야 한다.
-   * 앱 이름은 환경마다 다르므로 값을 직접 단정하지 않고 플로우 안에서 같은 표현식과 비교한다.
+   * {@code sourceAppName} 은 DSL 파라미터가 아니라 Java 에서 app.name 프로퍼티로
+   * 채워져야 한다. 앱 이름은 환경마다 다르므로 값을 직접 단정하지 않고 플로우 안에서
+   * 같은 표현식과 비교한다.
    */
   @Test
   public void derivesSourceAppNameFromAppNameProperty() throws Exception {
@@ -114,27 +115,19 @@ public class LoggingContextScopeFunctionalTestCase extends MuleArtifactFunctiona
   }
 
   /**
-   * 기본값이 {@code false} 이므로 {@code requestPayload} 는 비어야 한다.
+   * {@code includeRequestPayload="false"} 면 {@code requestPayload} 가 비어야 한다.
    * {@code originPayload} 는 플래그와 무관하게 항상 담긴다.
    */
   @Test
-  public void omitsRequestPayloadByDefault() throws Exception {
-    CoreEvent event = flowRunner("scopeOmitsRequestPayloadByDefault")
+  public void omitsRequestPayloadWhenDisabled() throws Exception {
+    CoreEvent event = flowRunner("scopeOmitsRequestPayloadWhenDisabled")
         .withPayload("INCOMING-BODY")
         .run();
 
     assertThat(event.getMessage().getPayload().getValue(), is("NULL|INCOMING-BODY"));
   }
 
-  /** 명시한 {@code sourceAppName} 은 기본값을 덮어써야 한다. */
-  @Test
-  public void acceptsExplicitSourceAppName() throws Exception {
-    CoreEvent event = flowRunner("scopeAcceptsExplicitSourceAppName").run();
-
-    assertThat(event.getMessage().getPayload().getValue(), is("biz-com-sys-caller"));
-  }
-
-  /** 모든 파라미터에 기본값이 있으므로 속성 하나 없이도 스코프가 동작해야 한다. */
+  /** 기본값이 있는 파라미터를 생략하면 문서화된 기본값이 적용되어야 한다. */
   @Test
   public void appliesDefaultsWhenAllOmitted() throws Exception {
     CoreEvent event = flowRunner("scopeAppliesDefaults").run();

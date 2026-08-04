@@ -2,6 +2,9 @@ package org.mycompany.bizcom.log;
 
 import static org.mule.sdk.api.annotation.param.MediaType.ANY;
 
+import javax.inject.Inject;
+
+import org.mule.runtime.api.component.ConfigurationProperties;
 import org.mule.runtime.api.metadata.TypedValue;
 import org.mule.sdk.api.annotation.error.Throws;
 import org.mule.sdk.api.annotation.param.Config;
@@ -39,6 +42,17 @@ public class BizComLogOperations {
 
   /** {@code #[attributes]} — {@code Optional.PAYLOAD} 에 대응하는 attributes 쪽 기본값. */
   private static final String CURRENT_ATTRIBUTES = "#[attributes]";
+
+  /** Mule 이 배포된 앱 이름을 담고 있는 예약 프로퍼티. */
+  private static final String APP_NAME_PROPERTY = "app.name";
+
+  /**
+   * sourceAppName 을 DSL 파라미터로 노출하지 않고 Java 에서 채우기 위해 주입받는다.
+   * { p('app.name')} 을 표현식 기본값으로 쓰던 것을 대체한다 — 사용자가 값을
+   * 지정할 여지를 없애고 항상 현재 앱 이름이 기록되도록 한다.
+   */
+  @Inject
+  private ConfigurationProperties configurationProperties;
 
   /**
    * <b>Scope</b> — 감싼 하위 컴포넌트 체인을 실행하면서 로그 컨텍스트를 메시지
@@ -103,6 +117,7 @@ public class BizComLogOperations {
     Object originPayload = streamingHelper.resolveCursorProvider(valueOf(payload));
 
     LogContext context = LogContext.from(target, params)
+        .sourceAppName(resolveSourceAppName())
         .correlationId(correlationIdOf(correlationInfo))
         .originPayload(originPayload)
         .originAttributes(valueOf(originAttributes))
@@ -160,6 +175,7 @@ public class BizComLogOperations {
                                  CorrelationInfo correlationInfo,
                                  StreamingHelper streamingHelper) {
     return LogContext.from(config, params)
+        .sourceAppName(resolveSourceAppName())
         .correlationId(correlationIdOf(correlationInfo))
         .originPayload(streamingHelper.resolveCursorProvider(valueOf(payload)))
         .originAttributes(valueOf(originAttributes))
@@ -182,6 +198,18 @@ public class BizComLogOperations {
    */
   private static Object valueOf(TypedValue<Object> typedValue) {
     return typedValue == null ? null : typedValue.getValue();
+  }
+
+  /**
+   * 현재 Mule 앱 이름을 돌려준다. 프로퍼티가 없는 환경(일부 테스트 하네스 등)에서는
+   * {@code null} 이다 — 자동 파생 값 때문에 로깅이 실패하면 안 되므로 검증하지 않는다.
+   */
+  private String resolveSourceAppName() {
+    if (configurationProperties == null) {
+      return null;
+    }
+    // java.util.Optional 을 import 하면 sdk-api 의 @Optional 과 단순명이 충돌한다.
+    return configurationProperties.resolveStringProperty(APP_NAME_PROPERTY).orElse(null);
   }
 
   /**

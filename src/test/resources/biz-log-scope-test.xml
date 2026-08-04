@@ -20,7 +20,7 @@
                           triggerType="API"
                           actor="SFDC"
                           targetAppName="SFDC"
-                          status="SUCCESS">
+                          status="SUCCESS" includeRequestPayload="false" includeResponsePayload="false">
       <set-payload value="#[
         attributes.flowVersion ++ '|' ++
         attributes.baseTableName ++ '|' ++
@@ -39,7 +39,7 @@
                           triggerType="API"
                           actor="SFDC"
                           targetAppName="LOCAL"
-                          status="FAIL">
+                          status="FAIL" includeRequestPayload="false" includeResponsePayload="false">
       <logger level="DEBUG" message="#[attributes.actor]"/>
     </biz-log:logging-context>
   </flow>
@@ -56,7 +56,7 @@
                           triggerType="API"
                           actor="SFDC"
                           targetAppName="SFDC"
-                          status="FAIL">
+                          status="FAIL" includeRequestPayload="false" includeResponsePayload="false">
       <set-payload value="#[1 / 0 as String {format: 'x'}]"/>
     </biz-log:logging-context>
     <error-handler>
@@ -72,7 +72,7 @@
                           triggerType="API"
                           actor="SFDC"
                           targetAppName="SFDC"
-                          status="SUCCESS">
+                          status="SUCCESS" includeRequestPayload="false" includeResponsePayload="false">
       <set-payload value="#[attributes.originPayload]"/>
     </biz-log:logging-context>
   </flow>
@@ -86,7 +86,7 @@
                           triggerType="API"
                           actor="SFDC"
                           targetAppName="SFDC"
-                          status="SUCCESS">
+                          status="SUCCESS" includeRequestPayload="false" includeResponsePayload="false">
       <set-variable variableName="ctx" value="#[attributes]"/>
       <set-payload value="#[{ replaced: true }]"/>
       <set-payload value="#[vars.ctx.originPayload]"/>
@@ -103,7 +103,7 @@
                           triggerType="API"
                           actor="SFDC"
                           targetAppName="SFDC"
-                          status="SUCCESS">
+                          status="SUCCESS" includeRequestPayload="false" includeResponsePayload="false">
       <set-payload value="#[
         if (attributes.correlationId == vars.expectedCorrelationId) 'SAME' else 'DIFFERENT'
       ]"/>
@@ -116,17 +116,18 @@
                           triggerType="BATCH"
                           actor="SFDC"
                           targetAppName="SFDC"
-                          status="SUCCESS">
+                          status="SUCCESS" includeRequestPayload="false" includeResponsePayload="false">
       <set-payload value="#[if (attributes.startTime != null) 'T' else 'F']"/>
     </biz-log:logging-context>
   </flow>
 
   <!--
-    (8) sourceAppName 이 p('app.name') 으로 채워지는지.
-        앱 이름은 환경마다 다르므로 값을 직접 단정하지 않고 p('app.name') 과 비교한다.
+    (8) sourceAppName 이 Java 에서 app.name 프로퍼티로 채워지는지.
+        DSL 파라미터가 아니므로 사용자가 지정할 수 없다. 앱 이름은 환경마다 다르므로
+        값을 직접 단정하지 않고 p('app.name') 과 비교한다.
   -->
   <flow name="scopeDerivesSourceAppNameFromProperty">
-    <biz-log:logging-context>
+    <biz-log:logging-context includeRequestPayload="false" includeResponsePayload="false">
       <set-payload value="#[
         if (attributes.sourceAppName == p('app.name')) 'SAME' else 'DIFFERENT'
       ]"/>
@@ -134,18 +135,18 @@
   </flow>
 
   <!--
-    (9) includeRequestPayload 게이팅.
+    (9) includeRequestPayload 게이팅. 두 플래그는 필수 속성이므로 항상 명시한다.
         켜면 진입 직전 payload 가 requestPayload 로, 끄면 null 이 되어야 한다.
         originPayload 는 플래그와 무관하게 항상 담긴다.
   -->
   <flow name="scopeIncludesRequestPayloadWhenEnabled">
-    <biz-log:logging-context includeRequestPayload="true">
+    <biz-log:logging-context includeRequestPayload="true" includeResponsePayload="false">
       <set-payload value="#[attributes.requestPayload]"/>
     </biz-log:logging-context>
   </flow>
 
-  <flow name="scopeOmitsRequestPayloadByDefault">
-    <biz-log:logging-context>
+  <flow name="scopeOmitsRequestPayloadWhenDisabled">
+    <biz-log:logging-context includeRequestPayload="false" includeResponsePayload="false">
       <set-payload value="#[
         (if (attributes.requestPayload == null) 'NULL' else 'SET') ++ '|' ++
         attributes.originPayload
@@ -153,20 +154,14 @@
     </biz-log:logging-context>
   </flow>
 
-  <!-- (10) sourceAppName 을 명시하면 기본값을 덮어써야 한다 -->
-  <flow name="scopeAcceptsExplicitSourceAppName">
-    <biz-log:logging-context sourceAppName="biz-com-sys-caller">
-      <set-payload value="#[attributes.sourceAppName]"/>
-    </biz-log:logging-context>
-  </flow>
-
   <!--
-    (11) 모든 파라미터에 기본값이 있으므로 속성 없이도 동작해야 한다.
+    (10) 기본값이 있는 파라미터를 모두 생략했을 때 적용되는 값.
+         필수인 include 플래그 2개만 명시한다.
          v1 / MULE_BIZ_INTERFACE_LOG / API / SFDC / biz-com-exp-listener / SUCCESS
          (sourceAppName 은 환경 의존이라 위 (8) 에서 따로 검증한다)
   -->
   <flow name="scopeAppliesDefaults">
-    <biz-log:logging-context>
+    <biz-log:logging-context includeRequestPayload="false" includeResponsePayload="false">
       <set-payload value="#[
         attributes.flowVersion ++ '|' ++
         attributes.baseTableName ++ '|' ++
@@ -178,14 +173,14 @@
     </biz-log:logging-context>
   </flow>
 
-  <!-- (12) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
+  <!-- (11) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
   <flow name="scopeRejectsBlankParameter">
     <biz-log:logging-context flowVersion=" "
                           baseTableName="MULE_BIZ_INTERFACE_LOG"
                           triggerType="API"
                           actor="SFDC"
                           targetAppName="SFDC"
-                          status="SUCCESS">
+                          status="SUCCESS" includeRequestPayload="false" includeResponsePayload="false">
       <logger level="DEBUG" message="여기까지 오면 안 된다"/>
     </biz-log:logging-context>
     <error-handler>

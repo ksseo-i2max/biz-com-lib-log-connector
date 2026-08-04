@@ -41,22 +41,6 @@ public class LogContextParameters {
   @Example("SFDC")
   private String actor;
 
-  /**
-   * 기본값이 리터럴이 아니라 <b>표현식</b>이다. {@code p('app.name')} 은 Mule 이 배포된
-   * 애플리케이션 이름을 돌려주므로, 커넥터를 쓰는 앱이 자기 이름을 따로 적지 않아도
-   * 출발지가 채워진다.
-   *
-   * <p>단, 이 값은 검증하지 않는다. 프로퍼티가 없는 환경(일부 테스트 하네스 등)에서는
-   * {@code p()} 가 null 을 돌려주는데, 자동 파생 값 때문에 로깅이 실패하면 안 된다.
-   * {@code correlationId} 와 같은 취급이다.
-   */
-  @Parameter
-  @Optional(defaultValue = "#[p('app.name')]")
-  @DisplayName("Source App Name")
-  @Summary("호출 출발 애플리케이션 명 (기본값: 현재 Mule 앱 이름 p('app.name'))")
-  @Example("biz-com-exp-listener")
-  private String sourceAppName;
-
   @Parameter
   @Optional(defaultValue = "biz-com-exp-listener")
   @DisplayName("Target App Name")
@@ -78,9 +62,9 @@ public class LogContextParameters {
    * 민감정보 노출 비용이 있는 선택이므로, 명시적으로 켜야 담기게 했다.
    */
   @Parameter
-  @Optional(defaultValue = "false")
   @DisplayName("Include Request Payload")
-  @Summary("진입 직전 payload 를 requestPayload 로 기록할지 여부 (기본값 false)")
+  @Summary("진입 직전 payload 를 requestPayload 로 기록할지 여부")
+  @Example("false")
   private boolean includeRequestPayload;
 
   /**
@@ -92,9 +76,9 @@ public class LogContextParameters {
    * 그 방식은 아직 채택하지 않았다.
    */
   @Parameter
-  @Optional(defaultValue = "false")
   @DisplayName("Include Response Payload")
-  @Summary("응답 payload 기록 여부 (기본값 false). 현재는 플래그만 전달된다")
+  @Summary("응답 payload 기록 여부. 현재는 플래그만 전달된다")
+  @Example("false")
   private boolean includeResponsePayload;
 
   public TriggerType getTriggerType() {
@@ -103,10 +87,6 @@ public class LogContextParameters {
 
   public String getActor() {
     return actor;
-  }
-
-  public String getSourceAppName() {
-    return sourceAppName;
   }
 
   public String getTargetAppName() {

@@ -19,7 +19,7 @@
                            actor="scheduler"
                            targetAppName="SAP"
                            status="FAIL"
-                           target="ctx"/>
+                           target="ctx" includeRequestPayload="false" includeResponsePayload="false"/>
     <set-payload value="#[
       vars.ctx.flowVersion ++ '|' ++
       vars.ctx.baseTableName ++ '|' ++
@@ -40,7 +40,7 @@
                            actor="integration-user"
                            targetAppName="LEGACY"
                            status="SUCCESS"
-                           target="ctx"/>
+                           target="ctx" includeRequestPayload="false" includeResponsePayload="false"/>
 
     <!-- 메시지 전체 교체를 모사 -->
     <set-payload value="#[{ replaced: true }]"/>
@@ -59,7 +59,7 @@
                            actor="SFDC"
                            targetAppName="SFDC"
                            status="SUCCESS"
-                           target="ctx"/>
+                           target="ctx" includeRequestPayload="false" includeResponsePayload="false"/>
     <set-payload value="#[{ replaced: true }]"/>
     <set-payload value="#[vars.ctx.originPayload]"/>
   </flow>
@@ -71,7 +71,7 @@
                            actor="SFDC"
                            targetAppName="SFDC"
                            status="SUCCESS"
-                           target="ctx"/>
+                           target="ctx" includeRequestPayload="false" includeResponsePayload="false"/>
     <set-payload value="#[
       if (vars.ctx.correlationId == correlationId) 'SAME' else 'DIFFERENT'
     ]"/>
@@ -84,7 +84,7 @@
                            actor="scheduler"
                            targetAppName="SAP"
                            status="SUCCESS"
-                           target="ctx"/>
+                           target="ctx" includeRequestPayload="false" includeResponsePayload="false"/>
     <set-payload value="#[if (vars.ctx.startTime != null) 'T' else 'F']"/>
   </flow>
 
@@ -93,7 +93,7 @@
         앱 이름은 환경마다 다르므로 값을 직접 단정하지 않고 p('app.name') 과 비교한다.
   -->
   <flow name="operationDerivesSourceAppNameFromProperty">
-    <biz-log:build-context config-ref="BizLog_Config" target="ctx"/>
+    <biz-log:build-context config-ref="BizLog_Config" target="ctx" includeRequestPayload="false" includeResponsePayload="false"/>
     <set-payload value="#[
       if (vars.ctx.sourceAppName == p('app.name')) 'SAME' else 'DIFFERENT'
     ]"/>
@@ -108,7 +108,7 @@
   <biz-log:config name="BizLog_Config_Default"/>
 
   <flow name="operationAppliesDefaults">
-    <biz-log:build-context config-ref="BizLog_Config_Default" target="ctx"/>
+    <biz-log:build-context config-ref="BizLog_Config_Default" target="ctx" includeRequestPayload="false" includeResponsePayload="false"/>
     <set-payload value="#[
       vars.ctx.flowVersion ++ '|' ++
       vars.ctx.baseTableName ++ '|' ++
@@ -125,7 +125,7 @@
                            triggerType="API"
                            actor="ops"
                            targetAppName="ADMIN"
-                           status="SUCCESS"/>
+                           status="SUCCESS" includeRequestPayload="false" includeResponsePayload="false"/>
     <set-payload value="#[payload.actor ++ '|' ++ payload.targetAppName]"/>
   </flow>
 
