@@ -143,14 +143,15 @@ public class LogContextTestCase {
     assertRejected(valid().targetAppName(" "));
   }
 
-  /** enum 파라미터는 null 이어도 컨텍스트 생성 자체는 막지 않는다 (스키마가 이미 필수 강제). */
+  /**
+   * {@code triggerType} / {@code status} 는 DSL 기본값({@code API} / {@code SUCCESS})이
+   * 있어 XML 에서는 비지 않지만, 프로그램에서 직접 빌드하는 경로를 위해 null 을 거부한다.
+   * 이것이 "필수"를 도메인 레벨에서 보장하는 지점이다.
+   */
   @Test
-  public void allowsNullEnumsAndRendersThemAsNullInMap() {
-    LogContext ctx = valid().triggerType(null).status(null).build();
-
-    assertThat(ctx.getTriggerType(), is((Object) null));
-    assertThat(ctx.toMap().get("triggerType"), is((Object) null));
-    assertThat(ctx.toMap().get("status"), is((Object) null));
+  public void rejectsNullEnumsWithInvalidContext() {
+    assertRejected(valid().triggerType(null));
+    assertRejected(valid().status(null));
   }
 
   /** 원본 메시지는 지정하지 않으면 null 이며, 그 자체로 오류는 아니다. */

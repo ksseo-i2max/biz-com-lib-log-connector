@@ -121,14 +121,20 @@
     </biz-log:with-context>
   </flow>
 
-  <!-- (8) flowVersion 을 생략하면 기본값 "v1" 이 적용되는지 -->
-  <flow name="scopeAppliesFlowVersionDefault">
+  <!--
+    (8) 기본값이 있는 세 파라미터를 모두 생략했을 때
+        flowVersion=v1 / triggerType=API / status=SUCCESS 가 적용되는지.
+        baseTableName / actor / targetAppName 만 남는 최소 형태다.
+  -->
+  <flow name="scopeAppliesDefaults">
     <biz-log:with-context baseTableName="TB_IF_LOG"
-                          triggerType="BATCH"
                           actor="batch-user"
-                          targetAppName="SFDC"
-                          status="SUCCESS">
-      <set-payload value="#[attributes.flowVersion]"/>
+                          targetAppName="SFDC">
+      <set-payload value="#[
+        attributes.flowVersion ++ '|' ++
+        attributes.triggerType ++ '|' ++
+        attributes.status
+      ]"/>
     </biz-log:with-context>
   </flow>
 

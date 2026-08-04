@@ -105,17 +105,44 @@ Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값�
 | `flowVersion` | 아니오 | `v1` | 로그 스키마 / 플로우 버전 식별자 |
 | `baseTableName` | **예** | — | 로그가 기록될 기준 테이블명 |
 
-### 컨텍스트 (Scope / Operation 공통, 4개 모두 필수)
+### 컨텍스트 (Scope / Operation 공통)
 
-| 파라미터 | 타입 | 값 |
-|---|---|---|
-| `triggerType` | enum | `API` (외부 API 호출로 기동), `BATCH` (배치 / 스케줄러로 기동) |
-| `actor` | String | 작업 주체 (사용자 ID 또는 시스템 계정) |
-| `targetAppName` | String | 연동 대상 애플리케이션 명 |
-| `status` | enum | `SUCCESS` (정상 처리), `FAIL` (실패) |
+| 파라미터 | 타입 | 기본값 | 값 |
+|---|---|---|---|
+| `triggerType` | enum | `API` | `API` (외부 API 호출로 기동), `BATCH` (배치 / 스케줄러로 기동) |
+| `actor` | String | — | 작업 주체 (사용자 ID 또는 시스템 계정) |
+| `targetAppName` | String | — | 연동 대상 애플리케이션 명 |
+| `status` | enum | `SUCCESS` | `SUCCESS` (정상 처리), `FAIL` (실패) |
+
+기본값이 있는 세 파라미터(`flowVersion`, `triggerType`, `status`)를 모두 생략하면
+최소 형태가 됩니다.
+
+```xml
+<biz-log:with-context baseTableName="TB_IF_LOG"
+                      actor="batch-user"
+                      targetAppName="SFDC">
+  ...
+</biz-log:with-context>
+<!-- flowVersion=v1, triggerType=API, status=SUCCESS -->
+```
 
 enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하거나 제거하면 이미 배포된
 앱의 `triggerType="..."` / `status="..."` 값이 기동 시점에 깨집니다.
+
+### "필수" 와 "기본값" 에 대해
+
+Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(defaultValue = ...)` 을
+붙이면 스키마상 required 가 아니게 되어 XML 에서 생략할 수 있습니다. 그래서 두 층으로
+나눠 구현했습니다.
+
+| 층 | 대상 | 효과 |
+|---|---|---|
+| 스키마 레벨 필수 | `baseTableName`, `actor`, `targetAppName` | 누락 시 **앱 기동 실패** |
+| 도메인 레벨 필수 | `triggerType`, `status` | XML 에서 생략 가능하지만 기본값이 채워지고, null 이면 `BIZ-LOG:INVALID_CONTEXT` |
+
+즉 `triggerType` / `status` 는 XML 에서 생략할 수 있지만 **컨텍스트에 값이 비는 일은
+없습니다.** 문자열 파라미터도 빈 문자열(`" "`)을 명시하면 `BIZ-LOG:INVALID_CONTEXT` 로
+거부됩니다.
 
 ## 컨텍스트에 실리는 항목
 

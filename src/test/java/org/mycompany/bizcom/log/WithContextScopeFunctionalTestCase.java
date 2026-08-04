@@ -92,12 +92,16 @@ public class WithContextScopeFunctionalTestCase extends MuleArtifactFunctionalTe
     assertThat(event.getMessage().getPayload().getValue(), is("T"));
   }
 
-  /** {@code flowVersion} 생략 시 스키마 기본값 {@code "v1"} 이 적용되어야 한다. */
+  /**
+   * 기본값이 있는 세 파라미터를 모두 생략하면 {@code v1} / {@code API} / {@code SUCCESS}
+   * 가 적용되어야 한다. 즉 {@code baseTableName} / {@code actor} / {@code targetAppName}
+   * 만으로 스코프를 쓸 수 있다.
+   */
   @Test
-  public void appliesFlowVersionDefault() throws Exception {
-    CoreEvent event = flowRunner("scopeAppliesFlowVersionDefault").run();
+  public void appliesDefaultsWhenOmitted() throws Exception {
+    CoreEvent event = flowRunner("scopeAppliesDefaults").run();
 
-    assertThat(event.getMessage().getPayload().getValue(), is("v1"));
+    assertThat(event.getMessage().getPayload().getValue(), is("v1|API|SUCCESS"));
   }
 
   @Test

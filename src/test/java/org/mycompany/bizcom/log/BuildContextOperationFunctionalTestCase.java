@@ -64,12 +64,15 @@ public class BuildContextOperationFunctionalTestCase extends MuleArtifactFunctio
     assertThat(event.getMessage().getPayload().getValue(), is("T"));
   }
 
-  /** Configuration 에서 {@code flowVersion} 생략 시 기본값 {@code "v1"} 이 적용되어야 한다. */
+  /**
+   * 기본값이 있는 세 파라미터를 모두 생략하면 {@code v1} / {@code API} / {@code SUCCESS}
+   * 가 적용되어야 한다.
+   */
   @Test
-  public void appliesFlowVersionDefault() throws Exception {
-    CoreEvent event = flowRunner("configAppliesFlowVersionDefault").run();
+  public void appliesDefaultsWhenOmitted() throws Exception {
+    CoreEvent event = flowRunner("operationAppliesDefaults").run();
 
-    assertThat(event.getMessage().getPayload().getValue(), is("v1"));
+    assertThat(event.getMessage().getPayload().getValue(), is("v1|API|SUCCESS"));
   }
 
   @Test

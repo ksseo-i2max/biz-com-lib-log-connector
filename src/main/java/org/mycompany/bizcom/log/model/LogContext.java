@@ -161,10 +161,11 @@ public class LogContext implements Serializable {
     Map<String, Object> map = new LinkedHashMap<>();
     map.put("flowVersion", flowVersion);
     map.put("baseTableName", baseTableName);
-    map.put("triggerType", triggerType == null ? null : triggerType.name());
+    // build() 가 null 을 거부하므로 여기서 null 검사는 불필요하다.
+    map.put("triggerType", triggerType.name());
     map.put("actor", actor);
     map.put("targetAppName", targetAppName);
-    map.put("status", status == null ? null : status.name());
+    map.put("status", status.name());
     map.put("correlationId", correlationId);
     map.put("startTime", startTime);
     map.put("originPayload", originPayload);
@@ -312,15 +313,23 @@ public class LogContext implements Serializable {
      * <p>Mule 은 required 파라미터의 <i>존재</i>만 보장하므로 빈 문자열은 통과한다.
      * 여기서 공백 여부를 검증해 {@link LogErrorType#INVALID_CONTEXT} 로 승격시킨다.
      *
-     * <p>{@code startTime} 이 지정되지 않았으면 {@link LocalDateTime#now()} 로 채운다.
+     * <p>{@code triggerType} / {@code status} 는 스키마 기본값({@code API} /
+     * {@code SUCCESS})이 있어 DSL 에서는 비지 않지만, 프로그램에서 직접 빌드하는 경로가
+     * 있으므로 여기서 null 을 막아 <b>도메인 레벨 필수</b>를 보장한다.
      *
-     * @throws ModuleException {@code BIZ-LOG:INVALID_CONTEXT} — 문자열 파라미터가 공백일 때
+     * <p>{@code startTime} 이 지정되지 않았으면 {@link LocalDateTime#now()} 로 채운다.
+     * {@code correlationId} 와 원본 메시지는 검증하지 않는다.
+     *
+     * @throws ModuleException {@code BIZ-LOG:INVALID_CONTEXT} — 문자열 파라미터가 공백이거나
+     *     {@code triggerType} / {@code status} 가 null 일 때
      */
     public LogContext build() {
       requireNonBlank(flowVersion, "flowVersion");
       requireNonBlank(baseTableName, "baseTableName");
       requireNonBlank(actor, "actor");
       requireNonBlank(targetAppName, "targetAppName");
+      requirePresent(triggerType, "triggerType");
+      requirePresent(status, "status");
 
       if (startTime == null) {
         startTime = LocalDateTime.now();
@@ -333,6 +342,14 @@ public class LogContext implements Serializable {
       if (value == null || value.trim().isEmpty()) {
         throw new ModuleException(
             "로그 컨텍스트 파라미터 '" + name + "' 는 비어 있을 수 없습니다.",
+            LogErrorType.INVALID_CONTEXT);
+      }
+    }
+
+    private static void requirePresent(Enum<?> value, String name) {
+      if (value == null) {
+        throw new ModuleException(
+            "로그 컨텍스트 파라미터 '" + name + "' 는 필수입니다.",
             LogErrorType.INVALID_CONTEXT);
       }
     }
