@@ -42,7 +42,7 @@ public class LogContextTestCase {
         .baseTableName("MULE_BIZ_INTERFACE_LOG")
         .triggerType(API)
         .actor("SFDC")
-        .targetAppName("SFDC")
+        .targetAppName("biz-com-exp-listener")
         .status(SUCCESS)
         .correlationId("corr-0001")
         .startTime(FIXED);
@@ -62,7 +62,7 @@ public class LogContextTestCase {
     assertThat(ctx.getBaseTableName(), is("MULE_BIZ_INTERFACE_LOG"));
     assertThat(ctx.getTriggerType(), is(API));
     assertThat(ctx.getActor(), is("SFDC"));
-    assertThat(ctx.getTargetAppName(), is("SFDC"));
+    assertThat(ctx.getTargetAppName(), is("biz-com-exp-listener"));
     assertThat(ctx.getStatus(), is(SUCCESS));
     assertThat(ctx.getCorrelationId(), is("corr-0001"));
     assertThat(ctx.getStartTime(), is(FIXED));
@@ -79,7 +79,7 @@ public class LogContextTestCase {
         .baseTableName("MULE_BIZ_INTERFACE_LOG")
         .triggerType(API)
         .actor("SFDC")
-        .targetAppName("SFDC")
+        .targetAppName("biz-com-exp-listener")
         .status(SUCCESS)
         .build();
     LocalDateTime after = LocalDateTime.now();

@@ -122,17 +122,17 @@
   </flow>
 
   <!--
-    (8) 기본값이 있는 파라미터를 모두 생략했을 때
-        flowVersion=v1 / baseTableName=MULE_BIZ_INTERFACE_LOG / triggerType=API /
-        actor=SFDC / status=SUCCESS 가 적용되는지. targetAppName 만 남는 최소 형태다.
+    (8) 모든 파라미터에 기본값이 있으므로 속성 없이도 동작해야 한다.
+        v1 / MULE_BIZ_INTERFACE_LOG / API / SFDC / biz-com-exp-listener / SUCCESS
   -->
   <flow name="scopeAppliesDefaults">
-    <biz-log:logging-context targetAppName="LEGACY">
+    <biz-log:logging-context>
       <set-payload value="#[
         attributes.flowVersion ++ '|' ++
         attributes.baseTableName ++ '|' ++
         attributes.triggerType ++ '|' ++
         attributes.actor ++ '|' ++
+        attributes.targetAppName ++ '|' ++
         attributes.status
       ]"/>
     </biz-log:logging-context>

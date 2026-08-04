@@ -92,16 +92,13 @@ public class LoggingContextScopeFunctionalTestCase extends MuleArtifactFunctiona
     assertThat(event.getMessage().getPayload().getValue(), is("T"));
   }
 
-  /**
-   * 기본값이 있는 파라미터를 모두 생략하면 {@code targetAppName} 만으로 스코프를 쓸 수
-   * 있어야 한다.
-   */
+  /** 모든 파라미터에 기본값이 있으므로 속성 하나 없이도 스코프가 동작해야 한다. */
   @Test
-  public void appliesDefaultsWhenOmitted() throws Exception {
+  public void appliesDefaultsWhenAllOmitted() throws Exception {
     CoreEvent event = flowRunner("scopeAppliesDefaults").run();
 
     assertThat(event.getMessage().getPayload().getValue(),
-        is("v1|MULE_BIZ_INTERFACE_LOG|API|SFDC|SUCCESS"));
+        is("v1|MULE_BIZ_INTERFACE_LOG|API|SFDC|biz-com-exp-listener|SUCCESS"));
   }
 
   @Test

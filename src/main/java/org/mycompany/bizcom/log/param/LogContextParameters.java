@@ -15,16 +15,16 @@ import org.mule.sdk.api.annotation.param.display.Summary;
  *
  * <p><b>필수 여부에 대해.</b> Mule SDK 에서 "필수"와 "기본값"은 동시에 성립하지 않는다.
  * {@code @Optional(defaultValue = ...)} 을 붙이면 스키마상 required 가 아니게 되어
- * XML 에서 생략할 수 있다. 그래서 두 층으로 나눴다.
+ * XML 에서 생략할 수 있다.
  *
- * <ul>
- *   <li>{@code targetAppName} — {@code @Optional} 없음. 스키마 레벨 필수. 연동 대상은
- *       사용처마다 달라서 기본값을 정할 수 없다.</li>
- *   <li>{@code triggerType} / {@code actor} / {@code status} — 기본값 {@code API} /
- *       {@code SFDC} / {@code SUCCESS}. XML 에서 생략 가능하지만 값이 비는 일은 없고,
- *       {@link org.mycompany.bizcom.log.model.LogContext} 빌더가 null / 공백을
- *       {@code BIZ-LOG:INVALID_CONTEXT} 로 거부하므로 도메인 레벨에서는 필수다.</li>
- * </ul>
+ * <p>네 파라미터 모두 기본값이 있으므로({@code API} / {@code SFDC} /
+ * {@code biz-com-exp-listener} / {@code SUCCESS}) <b>스키마 레벨 필수는 하나도 없다.</b>
+ * 대신 {@link org.mycompany.bizcom.log.model.LogContext} 빌더가 null / 공백을
+ * {@code BIZ-LOG:INVALID_CONTEXT} 로 거부하므로 값이 비는 일은 없다 — 필수 보장은
+ * 도메인 레벨에만 있다.
+ *
+ * <p>부작용을 알고 쓸 것: 파라미터를 하나도 안 써도 앱이 기동하므로, 오타로 파라미터를
+ * 빠뜨렸을 때 기동 시점에 잡히지 않고 기본값이 조용히 기록된다.
  */
 public class LogContextParameters {
 
@@ -42,9 +42,10 @@ public class LogContextParameters {
   private String actor;
 
   @Parameter
+  @Optional(defaultValue = "biz-com-exp-listener")
   @DisplayName("Target App Name")
-  @Summary("연동 대상 애플리케이션 명")
-  @Example("SFDC")
+  @Summary("연동 대상 애플리케이션 명 (기본값 biz-com-exp-listener)")
+  @Example("biz-com-exp-listener")
   private String targetAppName;
 
   @Parameter

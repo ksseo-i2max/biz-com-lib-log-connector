@@ -89,22 +89,20 @@
   </flow>
 
   <!--
-    (6) 기본값이 있는 파라미터를 모두 생략했을 때
-        flowVersion=v1 / baseTableName=MULE_BIZ_INTERFACE_LOG / triggerType=API /
-        actor=SFDC / status=SUCCESS 가 적용되는지.
-        config 는 이름만, operation 은 targetAppName 만 남는 최소 형태다.
+    (6) 모든 파라미터에 기본값이 있으므로 config 는 이름만, operation 은
+        config-ref / target 만으로 동작해야 한다.
+        v1 / MULE_BIZ_INTERFACE_LOG / API / SFDC / biz-com-exp-listener / SUCCESS
   -->
   <biz-log:config name="BizLog_Config_Default"/>
 
   <flow name="operationAppliesDefaults">
-    <biz-log:build-context config-ref="BizLog_Config_Default"
-                           targetAppName="ADMIN"
-                           target="ctx"/>
+    <biz-log:build-context config-ref="BizLog_Config_Default" target="ctx"/>
     <set-payload value="#[
       vars.ctx.flowVersion ++ '|' ++
       vars.ctx.baseTableName ++ '|' ++
       vars.ctx.triggerType ++ '|' ++
       vars.ctx.actor ++ '|' ++
+      vars.ctx.targetAppName ++ '|' ++
       vars.ctx.status
     ]"/>
   </flow>

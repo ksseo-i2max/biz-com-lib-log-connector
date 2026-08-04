@@ -8,7 +8,7 @@
 | Mule Runtime | 4.9.17 |
 | JDK | 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
-| 현재 버전 | `1.0.2-SNAPSHOT` |
+| 현재 버전 | `1.0.3-SNAPSHOT` |
 | XML prefix | `biz-log` |
 | Base package | `org.mycompany.bizcom.log` |
 
@@ -33,7 +33,7 @@
   <biz-log:logging-context flowVersion="${biz.log.flowVersion}"
       baseTableName="${biz.log.baseTableName}"
       triggerType="API" actor="SFDC"
-      targetAppName="SFDC" status="SUCCESS">
+      targetAppName="biz-com-exp-listener" status="SUCCESS">
 
     <logger message="#[attributes.actor ++ ' → ' ++ attributes.baseTableName]"/>
     <flow-ref name="businessFlow"/>
@@ -54,14 +54,13 @@
 > 그래서 `flowVersion` / `baseTableName` 을 Scope 자체 파라미터로 받습니다. 앱마다 한 번만
 > 정하려면 위 예시처럼 `${...}` property placeholder 를 쓰면 됩니다.
 
-기본값이 있는 파라미터를 모두 생략하면 `targetAppName` 만 남습니다.
+6개 파라미터 모두 기본값이 있어 속성 없이도 동작합니다.
 
 ```xml
-<biz-log:logging-context targetAppName="SFDC">
+<biz-log:logging-context>
   ...
 </biz-log:logging-context>
-<!-- flowVersion=v1, baseTableName=MULE_BIZ_INTERFACE_LOG,
-     triggerType=API, actor=SFDC, status=SUCCESS -->
+<!-- v1 / MULE_BIZ_INTERFACE_LOG / API / SFDC / biz-com-exp-listener / SUCCESS -->
 ```
 
 ### 2. Configuration + Operation — Build Context (`<biz-log:build-context>`)
@@ -111,17 +110,8 @@ Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값�
 |---|---|---|---|
 | `triggerType` | enum | `API` | `API` (외부 API 호출로 기동), `BATCH` (배치 / 스케줄러로 기동) |
 | `actor` | String | `SFDC` | 작업 주체 (사용자 ID 또는 시스템 계정) |
-| `targetAppName` | String | **없음** | 연동 대상 애플리케이션 명 |
+| `targetAppName` | String | `biz-com-exp-listener` | 연동 대상 애플리케이션 명 |
 | `status` | enum | `SUCCESS` | `SUCCESS` (정상 처리), `FAIL` (실패) |
-
-`targetAppName` 만 기본값이 없습니다. 연동 대상은 사용처마다 달라서 의미 있는 기본값을
-정할 수 없기 때문입니다. 따라서 최소 형태는 아래와 같습니다.
-
-```xml
-<biz-log:logging-context targetAppName="SFDC">
-  ...
-</biz-log:logging-context>
-```
 
 enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하거나 제거하면 이미 배포된
 앱의 `triggerType="..."` / `status="..."` 값이 기동 시점에 깨집니다.
@@ -129,16 +119,27 @@ enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하
 ### "필수" 와 "기본값" 에 대해
 
 Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(defaultValue = ...)` 을
-붙이면 스키마상 required 가 아니게 되어 XML 에서 생략할 수 있습니다. 그래서 두 층으로
-나눠 구현했습니다.
+붙이면 스키마상 required 가 아니게 되어 XML 에서 생략할 수 있습니다.
 
-| 층 | 대상 | 효과 |
-|---|---|---|
-| 스키마 레벨 필수 | `targetAppName` | 누락 시 **앱 기동 실패** |
-| 도메인 레벨 필수 | 그 외 전부 | XML 에서 생략 가능하지만 기본값이 채워지고, null / 공백이면 `BIZ-LOG:INVALID_CONTEXT` |
+**6개 파라미터 모두 기본값이 있으므로 스키마 레벨 필수는 하나도 없습니다.** 속성 없이도
+컴포넌트가 동작합니다.
 
-즉 기본값이 있는 파라미터는 XML 에서 생략할 수 있지만 **컨텍스트에 값이 비는 일은
-없습니다.** 빈 문자열(`" "`)을 명시하는 경우도 `BIZ-LOG:INVALID_CONTEXT` 로 거부됩니다.
+```xml
+<biz-log:logging-context>
+  ...
+</biz-log:logging-context>
+<!-- v1 / MULE_BIZ_INTERFACE_LOG / API / SFDC / biz-com-exp-listener / SUCCESS -->
+```
+
+필수 보장은 도메인 레벨에만 있습니다. `LogContext` 빌더가 null / 공백을
+`BIZ-LOG:INVALID_CONTEXT` 로 거부하므로 **컨텍스트에 값이 비는 일은 없습니다.**
+빈 문자열(`" "`)을 명시하는 경우도 거부됩니다.
+
+> **알고 쓸 것.** 파라미터를 하나도 안 써도 앱이 기동하므로, 오타로 파라미터 이름을
+> 틀리거나 빠뜨렸을 때 기동 시점에 잡히지 않고 **기본값이 조용히 기록됩니다.**
+> 특히 `status` 는 기본값이 `SUCCESS` 라서 실패 경로에서 `status="FAIL"` 을 빠뜨리면
+> 성공으로 남습니다. 값이 반드시 명시되어야 하는 파라미터가 있으면 그것만 기본값을
+> 빼는 편이 안전합니다.
 
 ## 컨텍스트에 실리는 항목
 
@@ -150,7 +151,7 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 | `baseTableName` | String | 파라미터 / Configuration (기본 `MULE_BIZ_INTERFACE_LOG`) |
 | `triggerType` | `TriggerType` | 파라미터 (기본 `API`) |
 | `actor` | String | 파라미터 (기본 `SFDC`) |
-| `targetAppName` | String | 파라미터 |
+| `targetAppName` | String | 파라미터 (기본 `biz-com-exp-listener`) |
 | `status` | `Status` | 파라미터 (기본 `SUCCESS`) |
 | `correlationId` | String | **기존** Mule 이벤트의 correlation id |
 | `startTime` | `LocalDateTime` | 커넥터가 자동 기록 |
@@ -194,7 +195,7 @@ Scope 는 attributes 를 로그 컨텍스트로 **교체**하므로, 원래 attr
 
 ```xml
 <biz-log:logging-context baseTableName="MULE_BIZ_INTERFACE_LOG" triggerType="API"
-    actor="SFDC" targetAppName="SFDC" status="SUCCESS">
+    actor="SFDC" targetAppName="biz-com-exp-listener" status="SUCCESS">
 
   <set-variable variableName="ctx" value="#[attributes]"/>
   <http:request .../>                              <!-- 메시지 교체 -->
@@ -314,7 +315,7 @@ mvn verify -Pfunctional-tests
 기능이 추가될 때마다 **patch 자리를 하나** 올립니다.
 
 ```
-1.0.2-SNAPSHOT  →  1.0.2-SNAPSHOT  →  1.0.3-SNAPSHOT  ...
+1.0.3-SNAPSHOT  →  1.0.3-SNAPSHOT  →  1.0.3-SNAPSHOT  ...
 ```
 
 `minor` / `major` 자리는 호환성이 깨지는 변경에 남겨 둡니다. 예를 들어 enum 상수 제거,
@@ -329,7 +330,7 @@ mvn verify -Pfunctional-tests
 <dependency>
   <groupId>org.mycompany</groupId>
   <artifactId>biz-com-lib-log-connector</artifactId>
-  <version>1.0.2-SNAPSHOT</version>
+  <version>1.0.3-SNAPSHOT</version>
   <classifier>mule-plugin</classifier>
 </dependency>
 ```
