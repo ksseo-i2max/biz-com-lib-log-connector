@@ -8,6 +8,7 @@
 | Mule Runtime | 4.9.17 |
 | JDK | 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
+| 현재 버전 | `1.0.1-SNAPSHOT` |
 | XML prefix | `biz-log` |
 | Base package | `org.mycompany.bizcom.log` |
 
@@ -313,13 +314,27 @@ mvn verify -Pfunctional-tests
    JDK 21 도 지원하려면 `BizComLogExtension` 의 `@JavaVersionSupport({JAVA_17})` 를
    `{JAVA_17, JAVA_21}` 로 확장하세요.
 
+## 버전 정책
+
+기능이 추가될 때마다 **patch 자리를 하나** 올립니다.
+
+```
+1.0.1-SNAPSHOT  →  1.0.2-SNAPSHOT  →  1.0.3-SNAPSHOT  ...
+```
+
+`minor` / `major` 자리는 호환성이 깨지는 변경에 남겨 둡니다. 예를 들어 enum 상수 제거,
+파라미터 이름 변경, 컨텍스트 항목 제거처럼 이미 배포된 앱의 XML 이나 DataWeave 표현식을
+깨뜨리는 변경이 그렇습니다.
+
+버전은 `pom.xml` 과 이 README 두 곳에 있습니다 (`.idea/` 는 IDE 생성물이라 gitignore 대상).
+
 ## Mule 앱에서 사용
 
 ```xml
 <dependency>
   <groupId>org.mycompany</groupId>
   <artifactId>biz-com-lib-log-connector</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.0.1-SNAPSHOT</version>
   <classifier>mule-plugin</classifier>
 </dependency>
 ```
