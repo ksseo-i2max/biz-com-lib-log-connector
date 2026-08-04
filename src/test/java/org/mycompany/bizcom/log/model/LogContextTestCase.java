@@ -44,6 +44,7 @@ public class LogContextTestCase {
         .actor("batch-user")
         .targetAppName("SFDC")
         .status(SUCCESS)
+        .correlationId("corr-0001")
         .startTime(FIXED);
   }
 
@@ -63,6 +64,7 @@ public class LogContextTestCase {
     assertThat(ctx.getActor(), is("batch-user"));
     assertThat(ctx.getTargetAppName(), is("SFDC"));
     assertThat(ctx.getStatus(), is(SUCCESS));
+    assertThat(ctx.getCorrelationId(), is("corr-0001"));
     assertThat(ctx.getStartTime(), is(FIXED));
     assertThat(ctx.getOriginPayload(), is(sameInstance(payload)));
     assertThat(ctx.getOriginAttributes(), is(sameInstance(attributes)));
@@ -108,16 +110,19 @@ public class LogContextTestCase {
         .actor("scheduler")
         .targetAppName("SAP")
         .status(FAIL)
+        .correlationId("corr-0002")
         .startTime(FIXED)
         .originPayload(payload)
         .build()
         .toMap();
 
     assertThat(map.keySet(), contains("flowVersion", "baseTableName", "triggerType", "actor",
-        "targetAppName", "status", "startTime", "originPayload", "originAttributes"));
+        "targetAppName", "status", "correlationId", "startTime", "originPayload",
+        "originAttributes"));
     assertThat(map.get("flowVersion"), is("v2"));
     assertThat(map.get("triggerType"), is("BATCH"));
     assertThat(map.get("status"), is("FAIL"));
+    assertThat(map.get("correlationId"), is("corr-0002"));
     assertThat(map.get("startTime"), is(FIXED));
     assertThat(map.get("originPayload"), is(sameInstance(payload)));
     assertThat(map.get("originAttributes"), is((Object) null));
@@ -158,6 +163,18 @@ public class LogContextTestCase {
   }
 
   /**
+   * {@code correlationId} 는 검증 대상이 아니다. 런타임이 항상 값을 주지만, 이벤트 없이
+   * 컨텍스트를 만드는 경우까지 실패로 막을 이유는 없다.
+   */
+  @Test
+  public void allowsAbsentCorrelationId() {
+    LogContext ctx = valid().correlationId(null).build();
+
+    assertThat(ctx.getCorrelationId(), is((Object) null));
+    assertThat(ctx.toMap().get("correlationId"), is((Object) null));
+  }
+
+  /**
    * {@code startTime} 은 값 비교에 참여하지만 {@code originPayload} /
    * {@code originAttributes} 는 제외된다 — 사용자의 임의 객체라 identity 기반
    * {@code equals} 인 경우가 많다.
@@ -169,6 +186,7 @@ public class LogContextTestCase {
     LogContext differentStatus = valid().status(FAIL).build();
     LogContext differentVersion = valid().flowVersion("v2").build();
     LogContext differentStartTime = valid().startTime(FIXED.plusNanos(1)).build();
+    LogContext differentCorrelationId = valid().correlationId("corr-9999").build();
     LogContext differentPayload = valid().originPayload(new Object()).build();
 
     assertThat(a, is(b));
@@ -176,6 +194,7 @@ public class LogContextTestCase {
     assertThat(a, is(not(differentStatus)));
     assertThat(a, is(not(differentVersion)));
     assertThat(a, is(not(differentStartTime)));
+    assertThat(a, is(not(differentCorrelationId)));
     assertThat("원본 메시지는 비교 대상이 아니다", a, is(differentPayload));
   }
 

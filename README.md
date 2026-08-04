@@ -119,7 +119,7 @@ enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하
 
 ## 컨텍스트에 실리는 항목
 
-`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 9개가 노출됩니다.
+`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 10개가 노출됩니다.
 
 | 항목 | 타입 | 출처 |
 |---|---|---|
@@ -129,15 +129,30 @@ enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하
 | `actor` | String | 파라미터 |
 | `targetAppName` | String | 파라미터 |
 | `status` | `Status` | 파라미터 |
+| `correlationId` | String | **기존** Mule 이벤트의 correlation id |
 | `startTime` | `LocalDateTime` | 커넥터가 자동 기록 |
 | `originPayload` | Object | 컴포넌트 진입 **전** payload |
 | `originAttributes` | Object | 컴포넌트 진입 **전** attributes |
 
 ```xml
+<logger message="#[attributes.correlationId]"/>
 <logger message="#[attributes.startTime]"/>
 <logger message="#[attributes.originPayload]"/>
 <logger message="#[attributes.originAttributes.headers]"/>   <!-- 예: HTTP 요청 헤더 -->
 ```
+
+### correlationId
+
+커넥터가 새로 만들지 않고 **현재 Mule 이벤트의 correlation id 를 그대로** 담습니다
+(`CorrelationInfo` 주입). 따라서 아래가 성립합니다.
+
+```xml
+<logger message="#[attributes.correlationId == correlationId]"/>   <!-- 항상 true -->
+```
+
+같은 이벤트에서 나온 로그끼리 이 값으로 묶을 수 있고, `flow-ref` 로 플로우 경계를 넘어도
+동일합니다. HTTP Listener 는 요청의 `X-Correlation-ID` 헤더를 이 값으로 받아들이므로
+호출측 시스템의 추적 id 와도 이어집니다.
 
 ### startTime
 

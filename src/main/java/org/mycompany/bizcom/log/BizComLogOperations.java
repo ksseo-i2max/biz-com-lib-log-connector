@@ -11,6 +11,7 @@ import org.mule.sdk.api.annotation.param.ParameterGroup;
 import org.mule.sdk.api.annotation.param.display.DisplayName;
 import org.mule.sdk.api.annotation.param.display.Summary;
 import org.mule.sdk.api.runtime.operation.Result;
+import org.mule.sdk.api.runtime.parameter.CorrelationInfo;
 import org.mule.sdk.api.runtime.process.CompletionCallback;
 import org.mule.sdk.api.runtime.route.Chain;
 import org.mule.sdk.api.runtime.streaming.StreamingHelper;
@@ -92,6 +93,7 @@ public class BizComLogOperations {
                           @Summary("originAttributes 로 기록할 attributes."
                               + " 기본값은 현재 attributes 다.")
                           TypedValue<Object> originAttributes,
+                          CorrelationInfo correlationInfo,
                           StreamingHelper streamingHelper,
                           Chain operations,
                           CompletionCallback<Object, Object> callback) {
@@ -100,8 +102,11 @@ public class BizComLogOperations {
     // 원본 커서를 그대로 들고 있으면 체인이 소비한 뒤 읽을 수 없다.
     Object originPayload = streamingHelper.resolveCursorProvider(valueOf(payload));
 
-    LogContext context =
-        LogContext.of(target, params, originPayload, valueOf(originAttributes));
+    LogContext context = LogContext.from(target, params)
+        .correlationId(correlationIdOf(correlationInfo))
+        .originPayload(originPayload)
+        .originAttributes(valueOf(originAttributes))
+        .build();
 
     // 체인에 넘기는 payload 도 위에서 resolve 한 값을 그대로 써서, 체인과 originPayload 가
     // 같은 repeatable provider 를 가리키게 한다.
@@ -152,10 +157,13 @@ public class BizComLogOperations {
                                  @Summary("originAttributes 로 기록할 attributes."
                                      + " 기본값은 현재 attributes 다.")
                                  TypedValue<Object> originAttributes,
+                                 CorrelationInfo correlationInfo,
                                  StreamingHelper streamingHelper) {
-    return LogContext.of(config, params,
-        streamingHelper.resolveCursorProvider(valueOf(payload)),
-        valueOf(originAttributes));
+    return LogContext.from(config, params)
+        .correlationId(correlationIdOf(correlationInfo))
+        .originPayload(streamingHelper.resolveCursorProvider(valueOf(payload)))
+        .originAttributes(valueOf(originAttributes))
+        .build();
   }
 
   /**
@@ -174,6 +182,14 @@ public class BizComLogOperations {
    */
   private static Object valueOf(TypedValue<Object> typedValue) {
     return typedValue == null ? null : typedValue.getValue();
+  }
+
+  /**
+   * 현재 이벤트의 correlation id 를 꺼낸다. 새로 만들지 않고 <b>기존 값을 그대로</b>
+   * 쓰므로, 같은 이벤트에서 나온 로그끼리 이 값으로 묶이고 플로우 경계를 넘어도 동일하다.
+   */
+  private static String correlationIdOf(CorrelationInfo correlationInfo) {
+    return correlationInfo == null ? null : correlationInfo.getCorrelationId();
   }
 
   /** 원본 payload 의 media type 을 보존한다. 알 수 없으면 {@code null} (런타임이 추론). */

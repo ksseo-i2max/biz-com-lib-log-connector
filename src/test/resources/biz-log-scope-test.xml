@@ -93,7 +93,24 @@
     </biz-log:with-context>
   </flow>
 
-  <!-- (6) startTime 이 채워지는지 -->
+  <!--
+    (6) correlationId 가 새로 만들어지지 않고 현재 이벤트의 값과 동일한지.
+        스코프 진입 전 correlationId 를 vars 에 담아두고 컨텍스트의 값과 비교한다.
+  -->
+  <flow name="scopeReusesEventCorrelationId">
+    <set-variable variableName="expectedCorrelationId" value="#[correlationId]"/>
+    <biz-log:with-context baseTableName="TB_IF_LOG"
+                          triggerType="API"
+                          actor="batch-user"
+                          targetAppName="SFDC"
+                          status="SUCCESS">
+      <set-payload value="#[
+        if (attributes.correlationId == vars.expectedCorrelationId) 'SAME' else 'DIFFERENT'
+      ]"/>
+    </biz-log:with-context>
+  </flow>
+
+  <!-- (7) startTime 이 채워지는지 -->
   <flow name="scopeStampsStartTime">
     <biz-log:with-context baseTableName="TB_IF_LOG"
                           triggerType="BATCH"
@@ -104,7 +121,7 @@
     </biz-log:with-context>
   </flow>
 
-  <!-- (7) flowVersion 을 생략하면 기본값 "v1" 이 적용되는지 -->
+  <!-- (8) flowVersion 을 생략하면 기본값 "v1" 이 적용되는지 -->
   <flow name="scopeAppliesFlowVersionDefault">
     <biz-log:with-context baseTableName="TB_IF_LOG"
                           triggerType="BATCH"
@@ -115,7 +132,7 @@
     </biz-log:with-context>
   </flow>
 
-  <!-- (8) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
+  <!-- (9) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
   <flow name="scopeRejectsBlankParameter">
     <biz-log:with-context flowVersion=" "
                           baseTableName="TB_IF_LOG"

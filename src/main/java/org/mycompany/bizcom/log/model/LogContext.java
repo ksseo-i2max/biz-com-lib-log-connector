@@ -23,12 +23,16 @@ import org.mycompany.bizcom.log.param.TriggerType;
  * 경로의 모양이 같다.
  *
  * <pre>
- *   Scope     : #[attributes.actor], #[attributes.startTime], #[attributes.originPayload]
- *   Operation : #[vars.ctx.actor],   #[vars.ctx.startTime],   #[vars.ctx.originPayload]
+ *   Scope     : #[attributes.actor], #[attributes.startTime], #[attributes.correlationId]
+ *   Operation : #[vars.ctx.actor],   #[vars.ctx.startTime],   #[vars.ctx.correlationId]
  * </pre>
  *
  * <p><b>{@code startTime}</b> 은 컨텍스트 생성 시각이다. 빌더에서 지정하지 않으면
  * {@link LocalDateTime#now()} 로 채워진다.
+ *
+ * <p><b>{@code correlationId}</b> 는 새로 만들지 않고 <b>현재 Mule 이벤트의 correlation
+ * id 를 그대로</b> 담는다. 커넥터가 {@code CorrelationInfo} 를 주입받아 채우므로, 같은
+ * 이벤트에서 나온 로그끼리 이 값으로 묶을 수 있고 플로우 경계를 넘어도 동일하다.
  *
  * <p><b>{@code originPayload} / {@code originAttributes}</b> 는 컴포넌트에 진입하기 <i>전</i>
  * 의 payload / attributes 다. Scope 의 경우 하위 체인이 실행되기 전 값이므로, 체인 안에서
@@ -51,6 +55,7 @@ public class LogContext implements Serializable {
   private final String actor;
   private final String targetAppName;
   private final Status status;
+  private final String correlationId;
   private final LocalDateTime startTime;
   private final Object originPayload;
   private final Object originAttributes;
@@ -62,6 +67,7 @@ public class LogContext implements Serializable {
     this.actor = builder.actor;
     this.targetAppName = builder.targetAppName;
     this.status = builder.status;
+    this.correlationId = builder.correlationId;
     this.startTime = builder.startTime;
     this.originPayload = builder.originPayload;
     this.originAttributes = builder.originAttributes;
@@ -71,18 +77,18 @@ public class LogContext implements Serializable {
     return new Builder();
   }
 
-  /** Operation({@code build-context}) 경로 — 로그 대상 정보를 Configuration 에서 가져온다. */
-  public static LogContext of(BizComLogConfiguration config,
-                              LogContextParameters params,
-                              Object originPayload,
-                              Object originAttributes) {
+  /**
+   * Operation({@code build-context}) 경로 — 로그 대상 정보를 Configuration 에서 가져온다.
+   *
+   * <p>완성된 컨텍스트가 아니라 {@link Builder} 를 돌려준다. 호출측이 correlationId,
+   * 원본 메시지 등 남은 값을 이어 붙이고 {@link Builder#build()} 하면 된다. 인자 목록이
+   * 계속 늘어나는 것을 막기 위한 구조다.
+   */
+  public static Builder from(BizComLogConfiguration config, LogContextParameters params) {
     return builder()
         .flowVersion(config.getFlowVersion())
         .baseTableName(config.getBaseTableName())
-        .from(params)
-        .originPayload(originPayload)
-        .originAttributes(originAttributes)
-        .build();
+        .from(params);
   }
 
   /**
@@ -90,17 +96,11 @@ public class LogContext implements Serializable {
    * 로그 대상 정보를 자체 파라미터로 받는다. 자세한 이유는
    * {@link LogTargetParameters} 참고.
    */
-  public static LogContext of(LogTargetParameters target,
-                              LogContextParameters params,
-                              Object originPayload,
-                              Object originAttributes) {
+  public static Builder from(LogTargetParameters target, LogContextParameters params) {
     return builder()
         .flowVersion(target.getFlowVersion())
         .baseTableName(target.getBaseTableName())
-        .from(params)
-        .originPayload(originPayload)
-        .originAttributes(originAttributes)
-        .build();
+        .from(params);
   }
 
   public String getFlowVersion() {
@@ -125,6 +125,11 @@ public class LogContext implements Serializable {
 
   public Status getStatus() {
     return status;
+  }
+
+  /** 현재 Mule 이벤트의 correlation id. 커넥터가 새로 만들지 않고 그대로 담는다. */
+  public String getCorrelationId() {
+    return correlationId;
   }
 
   /** 처리 시작 시각. 컨텍스트가 만들어진 시점이다. */
@@ -160,6 +165,7 @@ public class LogContext implements Serializable {
     map.put("actor", actor);
     map.put("targetAppName", targetAppName);
     map.put("status", status == null ? null : status.name());
+    map.put("correlationId", correlationId);
     map.put("startTime", startTime);
     map.put("originPayload", originPayload);
     map.put("originAttributes", originAttributes);
@@ -186,13 +192,14 @@ public class LogContext implements Serializable {
         && Objects.equals(actor, that.actor)
         && Objects.equals(targetAppName, that.targetAppName)
         && status == that.status
+        && Objects.equals(correlationId, that.correlationId)
         && Objects.equals(startTime, that.startTime);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(flowVersion, baseTableName, triggerType, actor, targetAppName, status,
-        startTime);
+        correlationId, startTime);
   }
 
   /**
@@ -209,6 +216,7 @@ public class LogContext implements Serializable {
         + ", actor='" + actor + '\''
         + ", targetAppName='" + targetAppName + '\''
         + ", status=" + status
+        + ", correlationId='" + correlationId + '\''
         + ", startTime=" + startTime
         + ", originPayload=" + describe(originPayload)
         + ", originAttributes=" + describe(originAttributes)
@@ -220,7 +228,7 @@ public class LogContext implements Serializable {
   }
 
   /**
-   * 필드가 9개여서 정적 팩토리 대신 빌더를 쓴다. 검증은 {@link #build()} 한 곳에만 있다.
+   * 필드가 10개여서 정적 팩토리 대신 빌더를 쓴다. 검증은 {@link #build()} 한 곳에만 있다.
    */
   public static final class Builder {
 
@@ -230,6 +238,7 @@ public class LogContext implements Serializable {
     private String actor;
     private String targetAppName;
     private Status status;
+    private String correlationId;
     private LocalDateTime startTime;
     private Object originPayload;
     private Object originAttributes;
@@ -264,6 +273,12 @@ public class LogContext implements Serializable {
 
     public Builder status(Status status) {
       this.status = status;
+      return this;
+    }
+
+    /** 현재 Mule 이벤트의 correlation id. 새로 만들지 않고 그대로 넘긴다. */
+    public Builder correlationId(String correlationId) {
+      this.correlationId = correlationId;
       return this;
     }
 

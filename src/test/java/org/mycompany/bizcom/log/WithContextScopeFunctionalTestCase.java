@@ -73,6 +73,17 @@ public class WithContextScopeFunctionalTestCase extends MuleArtifactFunctionalTe
     assertThat(event.getMessage().getPayload().getValue(), is("INCOMING-BODY"));
   }
 
+  /**
+   * {@code correlationId} 는 새로 만들지 않고 <b>현재 이벤트의 값을 그대로</b> 담아야 한다.
+   * 커넥터가 자체 id 를 생성하면 로그를 이벤트 단위로 묶을 수 없다.
+   */
+  @Test
+  public void reusesEventCorrelationId() throws Exception {
+    CoreEvent event = flowRunner("scopeReusesEventCorrelationId").run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("SAME"));
+  }
+
   /** {@code startTime} 이 커넥터에 의해 자동으로 채워져야 한다. */
   @Test
   public void stampsStartTime() throws Exception {
