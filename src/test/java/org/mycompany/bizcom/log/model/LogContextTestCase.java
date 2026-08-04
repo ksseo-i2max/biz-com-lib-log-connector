@@ -39,9 +39,9 @@ public class LogContextTestCase {
   private static LogContext.Builder valid() {
     return LogContext.builder()
         .flowVersion("v1")
-        .baseTableName("TB_IF_LOG")
+        .baseTableName("MULE_BIZ_INTERFACE_LOG")
         .triggerType(API)
-        .actor("batch-user")
+        .actor("SFDC")
         .targetAppName("SFDC")
         .status(SUCCESS)
         .correlationId("corr-0001")
@@ -59,9 +59,9 @@ public class LogContextTestCase {
         .build();
 
     assertThat(ctx.getFlowVersion(), is("v1"));
-    assertThat(ctx.getBaseTableName(), is("TB_IF_LOG"));
+    assertThat(ctx.getBaseTableName(), is("MULE_BIZ_INTERFACE_LOG"));
     assertThat(ctx.getTriggerType(), is(API));
-    assertThat(ctx.getActor(), is("batch-user"));
+    assertThat(ctx.getActor(), is("SFDC"));
     assertThat(ctx.getTargetAppName(), is("SFDC"));
     assertThat(ctx.getStatus(), is(SUCCESS));
     assertThat(ctx.getCorrelationId(), is("corr-0001"));
@@ -76,9 +76,9 @@ public class LogContextTestCase {
     LocalDateTime before = LocalDateTime.now();
     LogContext ctx = LogContext.builder()
         .flowVersion("v1")
-        .baseTableName("TB_IF_LOG")
+        .baseTableName("MULE_BIZ_INTERFACE_LOG")
         .triggerType(API)
-        .actor("batch-user")
+        .actor("SFDC")
         .targetAppName("SFDC")
         .status(SUCCESS)
         .build();
@@ -210,7 +210,7 @@ public class LogContextTestCase {
 
     assertThat(rendered, not(containsString(secret)));
     assertThat(rendered, containsString("originPayload=<String>"));
-    assertThat(rendered, containsString("actor='batch-user'"));
+    assertThat(rendered, containsString("actor='SFDC'"));
   }
 
   @Test

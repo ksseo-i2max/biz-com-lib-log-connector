@@ -45,19 +45,19 @@ public class BizComLogOperations {
    * attributes 로 주입한다.
    *
    * <pre>{@code
-   * <biz-log:with-context flowVersion="v1" baseTableName="TB_IF_LOG"
+   * <biz-log:logging-context flowVersion="v1" baseTableName="TB_IF_LOG"
    *     triggerType="API" actor="batch-user"
    *     targetAppName="SFDC" status="SUCCESS">
    *   <logger message="#[attributes.actor]"/>
    *   <flow-ref name="businessFlow"/>
-   * </biz-log:with-context>
+   * </biz-log:logging-context>
    * }</pre>
    *
    * <p>설계상 세 가지가 중요하다.
    *
    * <p>1. <b>{@code config-ref} 가 없다.</b> Mule SDK 는 Scope 의 config 바인딩을 금지한다
    * ({@code @Config} 를 붙이면 {@code IllegalOperationModelDefinitionException: Scope
-   * 'withContext' requires a config, but that is not allowed} 로 빌드 실패). 그래서
+   * 'loggingContext' requires a config, but that is not allowed} 로 빌드 실패). 그래서
    * {@code flowVersion} / {@code baseTableName} 을 {@link LogTargetParameters} 로 직접
    * 받는다. 앱마다 한 번만 정하려면 {@code ${...}} property placeholder 를 쓰면 된다.
    *
@@ -79,11 +79,11 @@ public class BizComLogOperations {
    * {@code build-context} 를 {@code target} 과 함께 쓰거나, 스코프 첫 줄에
    * {@code <set-variable variableName="ctx" value="#[attributes]"/>} 를 넣는다.
    */
-  @DisplayName("With Context")
+  @DisplayName("Logging Context")
   @Summary("로그 컨텍스트를 attributes 로 주입한 상태로 하위 컴포넌트를 실행한다")
   @MediaType(value = ANY, strict = false)
   @Throws(LogErrorProvider.class)
-  public void withContext(@ParameterGroup(name = TARGET_GROUP) LogTargetParameters target,
+  public void loggingContext(@ParameterGroup(name = TARGET_GROUP) LogTargetParameters target,
                           @ParameterGroup(name = CONTEXT_GROUP) LogContextParameters params,
                           @Optional(defaultValue = Optional.PAYLOAD)
                           @Summary("체인으로 전달하고 originPayload 로도 기록할 payload."

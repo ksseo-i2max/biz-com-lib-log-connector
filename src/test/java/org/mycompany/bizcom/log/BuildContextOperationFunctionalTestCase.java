@@ -65,14 +65,15 @@ public class BuildContextOperationFunctionalTestCase extends MuleArtifactFunctio
   }
 
   /**
-   * 기본값이 있는 세 파라미터를 모두 생략하면 {@code v1} / {@code API} / {@code SUCCESS}
-   * 가 적용되어야 한다.
+   * 기본값이 있는 파라미터를 모두 생략하면 config 는 이름만, operation 은
+   * {@code targetAppName} 만으로 쓸 수 있어야 한다.
    */
   @Test
   public void appliesDefaultsWhenOmitted() throws Exception {
     CoreEvent event = flowRunner("operationAppliesDefaults").run();
 
-    assertThat(event.getMessage().getPayload().getValue(), is("v1|API|SUCCESS"));
+    assertThat(event.getMessage().getPayload().getValue(),
+        is("v1|MULE_BIZ_INTERFACE_LOG|API|SFDC|SUCCESS"));
   }
 
   @Test

@@ -15,7 +15,7 @@ import org.mule.sdk.api.annotation.param.display.Summary;
  *
  * <pre>
  * IllegalOperationModelDefinitionException:
- *   Scope 'withContext' requires a config, but that is not allowed, remove such parameter
+ *   Scope 'loggingContext' requires a config, but that is not allowed, remove such parameter
  * </pre>
  *
  * <p>따라서 Scope 는 {@link org.mycompany.bizcom.log.BizComLogConfiguration} 의 값을
@@ -24,10 +24,10 @@ import org.mule.sdk.api.annotation.param.display.Summary;
  * 정하고 싶다면 Mule 의 property placeholder 를 쓰면 된다.
  *
  * <pre>{@code
- * <biz-log:with-context baseTableName="TB_IF_LOG"
+ * <biz-log:logging-context baseTableName="TB_IF_LOG"
  *                       triggerType="API" ... >
  *
- * <biz-log:with-context flowVersion="${biz.log.flowVersion}"
+ * <biz-log:logging-context flowVersion="${biz.log.flowVersion}"
  *                       baseTableName="${biz.log.baseTableName}"
  *                       triggerType="BATCH" ... >
  * }</pre>
@@ -45,9 +45,10 @@ public class LogTargetParameters {
   private String flowVersion;
 
   @Parameter
+  @Optional(defaultValue = "MULE_BIZ_INTERFACE_LOG")
   @DisplayName("Base Table Name")
-  @Summary("로그가 기록될 기준 테이블명")
-  @Example("TB_IF_LOG")
+  @Summary("로그가 기록될 기준 테이블명 (기본값 MULE_BIZ_INTERFACE_LOG)")
+  @Example("MULE_BIZ_INTERFACE_LOG")
   private String baseTableName;
 
   public String getFlowVersion() {

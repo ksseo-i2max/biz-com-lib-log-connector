@@ -10,13 +10,13 @@ import org.mule.functional.junit4.MuleArtifactFunctionalTestCase;
 import org.mule.runtime.core.api.event.CoreEvent;
 
 /**
- * {@code <biz-log:with-context>} Scope 검증.
+ * {@code <biz-log:logging-context>} Scope 검증.
  *
  * <p>에러 타입 검증은 테스트 프레임워크의 matcher 대신 XML {@code <error-handler>} 에서
  * 잡은 에러 타입 문자열을 payload 로 되돌려 단정한다. 의존하는 테스트 API 가 줄어들고,
  * 실제 사용자가 겪는 경로(error-handler 통과)를 그대로 검증할 수 있다.
  */
-public class WithContextScopeFunctionalTestCase extends MuleArtifactFunctionalTestCase {
+public class LoggingContextScopeFunctionalTestCase extends MuleArtifactFunctionalTestCase {
 
   @Override
   protected String getConfigFile() {
@@ -28,7 +28,7 @@ public class WithContextScopeFunctionalTestCase extends MuleArtifactFunctionalTe
     CoreEvent event = flowRunner("scopeExposesAttributes").run();
 
     assertThat(event.getMessage().getPayload().getValue(),
-        is("v1|TB_IF_LOG|API|batch-user|SFDC|SUCCESS"));
+        is("v1|MULE_BIZ_INTERFACE_LOG|API|SFDC|SFDC|SUCCESS"));
   }
 
   @Test
@@ -93,15 +93,15 @@ public class WithContextScopeFunctionalTestCase extends MuleArtifactFunctionalTe
   }
 
   /**
-   * 기본값이 있는 세 파라미터를 모두 생략하면 {@code v1} / {@code API} / {@code SUCCESS}
-   * 가 적용되어야 한다. 즉 {@code baseTableName} / {@code actor} / {@code targetAppName}
-   * 만으로 스코프를 쓸 수 있다.
+   * 기본값이 있는 파라미터를 모두 생략하면 {@code targetAppName} 만으로 스코프를 쓸 수
+   * 있어야 한다.
    */
   @Test
   public void appliesDefaultsWhenOmitted() throws Exception {
     CoreEvent event = flowRunner("scopeAppliesDefaults").run();
 
-    assertThat(event.getMessage().getPayload().getValue(), is("v1|API|SUCCESS"));
+    assertThat(event.getMessage().getPayload().getValue(),
+        is("v1|MULE_BIZ_INTERFACE_LOG|API|SFDC|SUCCESS"));
   }
 
   @Test

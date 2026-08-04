@@ -18,10 +18,11 @@ import org.mule.sdk.api.annotation.param.display.Summary;
  * XML 에서 생략할 수 있다. 그래서 두 층으로 나눴다.
  *
  * <ul>
- *   <li>{@code actor} / {@code targetAppName} — {@code @Optional} 없음. 스키마 레벨 필수.</li>
- *   <li>{@code triggerType} / {@code status} — 기본값 {@code API} / {@code SUCCESS}.
- *       XML 에서 생략 가능하지만 값이 비는 일은 없고,
- *       {@link org.mycompany.bizcom.log.model.LogContext} 빌더가 null 을
+ *   <li>{@code targetAppName} — {@code @Optional} 없음. 스키마 레벨 필수. 연동 대상은
+ *       사용처마다 달라서 기본값을 정할 수 없다.</li>
+ *   <li>{@code triggerType} / {@code actor} / {@code status} — 기본값 {@code API} /
+ *       {@code SFDC} / {@code SUCCESS}. XML 에서 생략 가능하지만 값이 비는 일은 없고,
+ *       {@link org.mycompany.bizcom.log.model.LogContext} 빌더가 null / 공백을
  *       {@code BIZ-LOG:INVALID_CONTEXT} 로 거부하므로 도메인 레벨에서는 필수다.</li>
  * </ul>
  */
@@ -34,9 +35,10 @@ public class LogContextParameters {
   private TriggerType triggerType;
 
   @Parameter
+  @Optional(defaultValue = "SFDC")
   @DisplayName("Actor")
-  @Summary("작업 주체 (사용자 ID 또는 시스템 계정)")
-  @Example("batch-user")
+  @Summary("작업 주체 (사용자 ID 또는 시스템 계정, 기본값 SFDC)")
+  @Example("SFDC")
   private String actor;
 
   @Parameter

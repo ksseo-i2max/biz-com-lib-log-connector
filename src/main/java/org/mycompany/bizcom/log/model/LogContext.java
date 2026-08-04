@@ -92,7 +92,7 @@ public class LogContext implements Serializable {
   }
 
   /**
-   * Scope({@code with-context}) 경로 — Scope 는 config 에 바인딩될 수 없으므로
+   * Scope({@code logging-context}) 경로 — Scope 는 config 에 바인딩될 수 없으므로
    * 로그 대상 정보를 자체 파라미터로 받는다. 자세한 이유는
    * {@link LogTargetParameters} 참고.
    */

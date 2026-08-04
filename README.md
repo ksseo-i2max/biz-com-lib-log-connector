@@ -8,7 +8,7 @@
 | Mule Runtime | 4.9.17 |
 | JDK | 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
-| 현재 버전 | `1.0.1-SNAPSHOT` |
+| 현재 버전 | `1.0.2-SNAPSHOT` |
 | XML prefix | `biz-log` |
 | Base package | `org.mycompany.bizcom.log` |
 
@@ -24,20 +24,20 @@
 
 ## 제공 컴포넌트
 
-### 1. Scope — `<biz-log:with-context>`
+### 1. Scope — Logging Context (`<biz-log:logging-context>`)
 
 컨텍스트를 메시지 **attributes** 로 주입한 상태로 하위 컴포넌트를 실행합니다.
 
 ```xml
 <flow name="scopeStyleFlow">
-  <biz-log:with-context flowVersion="${biz.log.flowVersion}"
+  <biz-log:logging-context flowVersion="${biz.log.flowVersion}"
       baseTableName="${biz.log.baseTableName}"
-      triggerType="API" actor="batch-user"
+      triggerType="API" actor="SFDC"
       targetAppName="SFDC" status="SUCCESS">
 
     <logger message="#[attributes.actor ++ ' → ' ++ attributes.baseTableName]"/>
     <flow-ref name="businessFlow"/>
-  </biz-log:with-context>
+  </biz-log:logging-context>
 </flow>
 ```
 
@@ -48,46 +48,45 @@
 >
 > ```
 > IllegalOperationModelDefinitionException:
->   Scope 'withContext' requires a config, but that is not allowed, remove such parameter
+>   Scope 'loggingContext' requires a config, but that is not allowed, remove such parameter
 > ```
 >
 > 그래서 `flowVersion` / `baseTableName` 을 Scope 자체 파라미터로 받습니다. 앱마다 한 번만
 > 정하려면 위 예시처럼 `${...}` property placeholder 를 쓰면 됩니다.
 
-`flowVersion` 은 기본값 `"v1"` 이 있어 생략할 수 있습니다.
+기본값이 있는 파라미터를 모두 생략하면 `targetAppName` 만 남습니다.
 
 ```xml
-<biz-log:with-context baseTableName="TB_IF_LOG"
-    triggerType="BATCH" actor="batch-user"
-    targetAppName="SFDC" status="SUCCESS">
+<biz-log:logging-context targetAppName="SFDC">
   ...
-</biz-log:with-context>
+</biz-log:logging-context>
+<!-- flowVersion=v1, baseTableName=MULE_BIZ_INTERFACE_LOG,
+     triggerType=API, actor=SFDC, status=SUCCESS -->
 ```
 
-### 2. Configuration + Operation — `<biz-log:build-context>`
+### 2. Configuration + Operation — Build Context (`<biz-log:build-context>`)
 
 Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값을 Configuration 에서 가져옵니다.
 
 ```xml
-<biz-log:config name="BizLog_Config"
-                baseTableName="TB_IF_LOG"/>
+<!-- 두 값 모두 기본값이 있어 이름만 주면 됩니다 -->
+<biz-log:config name="BizLog_Config"/>
 
-<!-- flowVersion 을 다르게 쓰려면 명시 -->
+<!-- 다르게 쓰려면 명시 -->
 <biz-log:config name="BizLog_Config_V2"
                 flowVersion="v2"
-                baseTableName="TB_IF_LOG"/>
+                baseTableName="MULE_BIZ_INTERFACE_LOG_HIST"/>
 ```
 
-`baseTableName` 은 **필수**입니다. 누락 시 앱 기동 시점에 검증 실패합니다.
-`flowVersion` 은 기본값 `"v1"` 이 있어 생략 가능합니다. 단, 빈 문자열을 명시하면
-`BIZ-LOG:INVALID_CONTEXT` 로 거부됩니다.
+두 파라미터 모두 기본값(`v1` / `MULE_BIZ_INTERFACE_LOG`)이 있어 생략 가능합니다.
+단, 빈 문자열을 명시하면 `BIZ-LOG:INVALID_CONTEXT` 로 거부됩니다.
 
 `target` 과 함께 쓰면 **진짜 flow variable** 이 되어 메시지가 교체되어도 살아남습니다.
 
 ```xml
 <flow name="varStyleFlow">
   <biz-log:build-context config-ref="BizLog_Config"
-      triggerType="BATCH" actor="scheduler"
+      triggerType="BATCH" actor="SFDC"
       targetAppName="SAP" status="FAIL"
       target="ctx"/>
 
@@ -101,30 +100,27 @@ Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값�
 
 ### 로그 대상 (Scope 파라미터 / Configuration)
 
-| 파라미터 | 필수 | 기본값 | 설명 |
-|---|---|---|---|
-| `flowVersion` | 아니오 | `v1` | 로그 스키마 / 플로우 버전 식별자 |
-| `baseTableName` | **예** | — | 로그가 기록될 기준 테이블명 |
+| 파라미터 | 기본값 | 설명 |
+|---|---|---|
+| `flowVersion` | `v1` | 로그 스키마 / 플로우 버전 식별자 |
+| `baseTableName` | `MULE_BIZ_INTERFACE_LOG` | 로그가 기록될 기준 테이블명 |
 
 ### 컨텍스트 (Scope / Operation 공통)
 
 | 파라미터 | 타입 | 기본값 | 값 |
 |---|---|---|---|
 | `triggerType` | enum | `API` | `API` (외부 API 호출로 기동), `BATCH` (배치 / 스케줄러로 기동) |
-| `actor` | String | — | 작업 주체 (사용자 ID 또는 시스템 계정) |
-| `targetAppName` | String | — | 연동 대상 애플리케이션 명 |
+| `actor` | String | `SFDC` | 작업 주체 (사용자 ID 또는 시스템 계정) |
+| `targetAppName` | String | **없음** | 연동 대상 애플리케이션 명 |
 | `status` | enum | `SUCCESS` | `SUCCESS` (정상 처리), `FAIL` (실패) |
 
-기본값이 있는 세 파라미터(`flowVersion`, `triggerType`, `status`)를 모두 생략하면
-최소 형태가 됩니다.
+`targetAppName` 만 기본값이 없습니다. 연동 대상은 사용처마다 달라서 의미 있는 기본값을
+정할 수 없기 때문입니다. 따라서 최소 형태는 아래와 같습니다.
 
 ```xml
-<biz-log:with-context baseTableName="TB_IF_LOG"
-                      actor="batch-user"
-                      targetAppName="SFDC">
+<biz-log:logging-context targetAppName="SFDC">
   ...
-</biz-log:with-context>
-<!-- flowVersion=v1, triggerType=API, status=SUCCESS -->
+</biz-log:logging-context>
 ```
 
 enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하거나 제거하면 이미 배포된
@@ -138,12 +134,11 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 
 | 층 | 대상 | 효과 |
 |---|---|---|
-| 스키마 레벨 필수 | `baseTableName`, `actor`, `targetAppName` | 누락 시 **앱 기동 실패** |
-| 도메인 레벨 필수 | `triggerType`, `status` | XML 에서 생략 가능하지만 기본값이 채워지고, null 이면 `BIZ-LOG:INVALID_CONTEXT` |
+| 스키마 레벨 필수 | `targetAppName` | 누락 시 **앱 기동 실패** |
+| 도메인 레벨 필수 | 그 외 전부 | XML 에서 생략 가능하지만 기본값이 채워지고, null / 공백이면 `BIZ-LOG:INVALID_CONTEXT` |
 
-즉 `triggerType` / `status` 는 XML 에서 생략할 수 있지만 **컨텍스트에 값이 비는 일은
-없습니다.** 문자열 파라미터도 빈 문자열(`" "`)을 명시하면 `BIZ-LOG:INVALID_CONTEXT` 로
-거부됩니다.
+즉 기본값이 있는 파라미터는 XML 에서 생략할 수 있지만 **컨텍스트에 값이 비는 일은
+없습니다.** 빈 문자열(`" "`)을 명시하는 경우도 `BIZ-LOG:INVALID_CONTEXT` 로 거부됩니다.
 
 ## 컨텍스트에 실리는 항목
 
@@ -152,11 +147,11 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 | 항목 | 타입 | 출처 |
 |---|---|---|
 | `flowVersion` | String | 파라미터 / Configuration (기본 `v1`) |
-| `baseTableName` | String | 파라미터 / Configuration |
-| `triggerType` | `TriggerType` | 파라미터 |
-| `actor` | String | 파라미터 |
+| `baseTableName` | String | 파라미터 / Configuration (기본 `MULE_BIZ_INTERFACE_LOG`) |
+| `triggerType` | `TriggerType` | 파라미터 (기본 `API`) |
+| `actor` | String | 파라미터 (기본 `SFDC`) |
 | `targetAppName` | String | 파라미터 |
-| `status` | `Status` | 파라미터 |
+| `status` | `Status` | 파라미터 (기본 `SUCCESS`) |
 | `correlationId` | String | **기존** Mule 이벤트의 correlation id |
 | `startTime` | `LocalDateTime` | 커넥터가 자동 기록 |
 | `originPayload` | Object | 컴포넌트 진입 **전** payload |
@@ -198,13 +193,13 @@ Scope 는 attributes 를 로그 컨텍스트로 **교체**하므로, 원래 attr
 진입 시점 값을 계속 참조할 수 있습니다.
 
 ```xml
-<biz-log:with-context baseTableName="TB_IF_LOG" triggerType="API"
-    actor="batch-user" targetAppName="SFDC" status="SUCCESS">
+<biz-log:logging-context baseTableName="MULE_BIZ_INTERFACE_LOG" triggerType="API"
+    actor="SFDC" targetAppName="SFDC" status="SUCCESS">
 
   <set-variable variableName="ctx" value="#[attributes]"/>
   <http:request .../>                              <!-- 메시지 교체 -->
   <logger message="#[vars.ctx.originPayload]"/>    <!-- 원본 요청 본문 -->
-</biz-log:with-context>
+</biz-log:logging-context>
 ```
 
 스트리밍 payload 는 커넥터가 `StreamingHelper.resolveCursorProvider(...)` 로 반복 조회
@@ -319,7 +314,7 @@ mvn verify -Pfunctional-tests
 기능이 추가될 때마다 **patch 자리를 하나** 올립니다.
 
 ```
-1.0.1-SNAPSHOT  →  1.0.2-SNAPSHOT  →  1.0.3-SNAPSHOT  ...
+1.0.2-SNAPSHOT  →  1.0.2-SNAPSHOT  →  1.0.3-SNAPSHOT  ...
 ```
 
 `minor` / `major` 자리는 호환성이 깨지는 변경에 남겨 둡니다. 예를 들어 enum 상수 제거,
@@ -334,7 +329,7 @@ mvn verify -Pfunctional-tests
 <dependency>
   <groupId>org.mycompany</groupId>
   <artifactId>biz-com-lib-log-connector</artifactId>
-  <version>1.0.1-SNAPSHOT</version>
+  <version>1.0.2-SNAPSHOT</version>
   <classifier>mule-plugin</classifier>
 </dependency>
 ```

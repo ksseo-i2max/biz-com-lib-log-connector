@@ -15,10 +15,10 @@
 
   <!-- (1) 로그 대상 2개 + 컨텍스트 4개가 모두 attributes 로 노출되는지 -->
   <flow name="scopeExposesAttributes">
-    <biz-log:with-context flowVersion="v1"
-                          baseTableName="TB_IF_LOG"
+    <biz-log:logging-context flowVersion="v1"
+                          baseTableName="MULE_BIZ_INTERFACE_LOG"
                           triggerType="API"
-                          actor="batch-user"
+                          actor="SFDC"
                           targetAppName="SFDC"
                           status="SUCCESS">
       <set-payload value="#[
@@ -29,19 +29,19 @@
         attributes.targetAppName ++ '|' ++
         attributes.status
       ]"/>
-    </biz-log:with-context>
+    </biz-log:logging-context>
   </flow>
 
   <!-- (2) 원본 payload 가 보존되는지 (pass-through) -->
   <flow name="scopePreservesPayload">
-    <biz-log:with-context flowVersion="v1"
-                          baseTableName="TB_IF_LOG"
+    <biz-log:logging-context flowVersion="v1"
+                          baseTableName="MULE_BIZ_INTERFACE_LOG"
                           triggerType="API"
-                          actor="tester"
+                          actor="SFDC"
                           targetAppName="LOCAL"
                           status="FAIL">
       <logger level="DEBUG" message="#[attributes.actor]"/>
-    </biz-log:with-context>
+    </biz-log:logging-context>
   </flow>
 
   <!--
@@ -51,14 +51,14 @@
         BIZ-LOG:* 로 감싸이면 이 단정이 깨진다.
   -->
   <flow name="scopePropagatesInnerErrorType">
-    <biz-log:with-context flowVersion="v1"
-                          baseTableName="TB_IF_LOG"
+    <biz-log:logging-context flowVersion="v1"
+                          baseTableName="MULE_BIZ_INTERFACE_LOG"
                           triggerType="API"
-                          actor="batch-user"
+                          actor="SFDC"
                           targetAppName="SFDC"
                           status="FAIL">
       <set-payload value="#[1 / 0 as String {format: 'x'}]"/>
-    </biz-log:with-context>
+    </biz-log:logging-context>
     <error-handler>
       <on-error-continue type="ANY">
         <set-payload value="#[error.errorType.namespace ++ ':' ++ error.errorType.identifier]"/>
@@ -68,13 +68,13 @@
 
   <!-- (4) 진입 전 payload / attributes 가 originPayload / originAttributes 로 실리는지 -->
   <flow name="scopeExposesOriginMessage">
-    <biz-log:with-context baseTableName="TB_IF_LOG"
+    <biz-log:logging-context baseTableName="MULE_BIZ_INTERFACE_LOG"
                           triggerType="API"
-                          actor="batch-user"
+                          actor="SFDC"
                           targetAppName="SFDC"
                           status="SUCCESS">
       <set-payload value="#[attributes.originPayload]"/>
-    </biz-log:with-context>
+    </biz-log:logging-context>
   </flow>
 
   <!--
@@ -82,15 +82,15 @@
         스코프 attributes 는 교체되므로 먼저 vars 로 옮겨 둔다.
   -->
   <flow name="scopeOriginPayloadSurvivesReplacement">
-    <biz-log:with-context baseTableName="TB_IF_LOG"
+    <biz-log:logging-context baseTableName="MULE_BIZ_INTERFACE_LOG"
                           triggerType="API"
-                          actor="batch-user"
+                          actor="SFDC"
                           targetAppName="SFDC"
                           status="SUCCESS">
       <set-variable variableName="ctx" value="#[attributes]"/>
       <set-payload value="#[{ replaced: true }]"/>
       <set-payload value="#[vars.ctx.originPayload]"/>
-    </biz-log:with-context>
+    </biz-log:logging-context>
   </flow>
 
   <!--
@@ -99,55 +99,55 @@
   -->
   <flow name="scopeReusesEventCorrelationId">
     <set-variable variableName="expectedCorrelationId" value="#[correlationId]"/>
-    <biz-log:with-context baseTableName="TB_IF_LOG"
+    <biz-log:logging-context baseTableName="MULE_BIZ_INTERFACE_LOG"
                           triggerType="API"
-                          actor="batch-user"
+                          actor="SFDC"
                           targetAppName="SFDC"
                           status="SUCCESS">
       <set-payload value="#[
         if (attributes.correlationId == vars.expectedCorrelationId) 'SAME' else 'DIFFERENT'
       ]"/>
-    </biz-log:with-context>
+    </biz-log:logging-context>
   </flow>
 
   <!-- (7) startTime 이 채워지는지 -->
   <flow name="scopeStampsStartTime">
-    <biz-log:with-context baseTableName="TB_IF_LOG"
+    <biz-log:logging-context baseTableName="MULE_BIZ_INTERFACE_LOG"
                           triggerType="BATCH"
-                          actor="batch-user"
+                          actor="SFDC"
                           targetAppName="SFDC"
                           status="SUCCESS">
       <set-payload value="#[if (attributes.startTime != null) 'T' else 'F']"/>
-    </biz-log:with-context>
+    </biz-log:logging-context>
   </flow>
 
   <!--
-    (8) 기본값이 있는 세 파라미터를 모두 생략했을 때
-        flowVersion=v1 / triggerType=API / status=SUCCESS 가 적용되는지.
-        baseTableName / actor / targetAppName 만 남는 최소 형태다.
+    (8) 기본값이 있는 파라미터를 모두 생략했을 때
+        flowVersion=v1 / baseTableName=MULE_BIZ_INTERFACE_LOG / triggerType=API /
+        actor=SFDC / status=SUCCESS 가 적용되는지. targetAppName 만 남는 최소 형태다.
   -->
   <flow name="scopeAppliesDefaults">
-    <biz-log:with-context baseTableName="TB_IF_LOG"
-                          actor="batch-user"
-                          targetAppName="SFDC">
+    <biz-log:logging-context targetAppName="LEGACY">
       <set-payload value="#[
         attributes.flowVersion ++ '|' ++
+        attributes.baseTableName ++ '|' ++
         attributes.triggerType ++ '|' ++
+        attributes.actor ++ '|' ++
         attributes.status
       ]"/>
-    </biz-log:with-context>
+    </biz-log:logging-context>
   </flow>
 
   <!-- (9) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
   <flow name="scopeRejectsBlankParameter">
-    <biz-log:with-context flowVersion=" "
-                          baseTableName="TB_IF_LOG"
+    <biz-log:logging-context flowVersion=" "
+                          baseTableName="MULE_BIZ_INTERFACE_LOG"
                           triggerType="API"
-                          actor="batch-user"
+                          actor="SFDC"
                           targetAppName="SFDC"
                           status="SUCCESS">
       <logger level="DEBUG" message="여기까지 오면 안 된다"/>
-    </biz-log:with-context>
+    </biz-log:logging-context>
     <error-handler>
       <on-error-continue type="ANY">
         <set-payload value="#[error.errorType.namespace ++ ':' ++ error.errorType.identifier]"/>

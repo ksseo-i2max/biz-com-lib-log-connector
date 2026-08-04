@@ -56,7 +56,7 @@
   <flow name="operationExposesOriginMessage">
     <biz-log:build-context config-ref="BizLog_Config"
                            triggerType="API"
-                           actor="batch-user"
+                           actor="SFDC"
                            targetAppName="SFDC"
                            status="SUCCESS"
                            target="ctx"/>
@@ -68,7 +68,7 @@
   <flow name="operationReusesEventCorrelationId">
     <biz-log:build-context config-ref="BizLog_Config"
                            triggerType="API"
-                           actor="batch-user"
+                           actor="SFDC"
                            targetAppName="SFDC"
                            status="SUCCESS"
                            target="ctx"/>
@@ -88,18 +88,23 @@
     <set-payload value="#[if (vars.ctx.startTime != null) 'T' else 'F']"/>
   </flow>
 
-  <!-- (6) 기본값이 있는 세 파라미터를 모두 생략했을 때 v1 / API / SUCCESS 가 적용되는지 -->
-  <biz-log:config name="BizLog_Config_Default"
-                  baseTableName="TB_IF_LOG"/>
+  <!--
+    (6) 기본값이 있는 파라미터를 모두 생략했을 때
+        flowVersion=v1 / baseTableName=MULE_BIZ_INTERFACE_LOG / triggerType=API /
+        actor=SFDC / status=SUCCESS 가 적용되는지.
+        config 는 이름만, operation 은 targetAppName 만 남는 최소 형태다.
+  -->
+  <biz-log:config name="BizLog_Config_Default"/>
 
   <flow name="operationAppliesDefaults">
     <biz-log:build-context config-ref="BizLog_Config_Default"
-                           actor="ops"
                            targetAppName="ADMIN"
                            target="ctx"/>
     <set-payload value="#[
       vars.ctx.flowVersion ++ '|' ++
+      vars.ctx.baseTableName ++ '|' ++
       vars.ctx.triggerType ++ '|' ++
+      vars.ctx.actor ++ '|' ++
       vars.ctx.status
     ]"/>
   </flow>

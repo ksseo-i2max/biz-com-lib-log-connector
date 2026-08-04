@@ -11,17 +11,13 @@ import org.mule.sdk.api.annotation.param.display.Summary;
 /**
  * 커넥터 Configuration.
  *
- * <p>{@code baseTableName} 은 {@code @Optional} 이 없으므로 <b>필수(required)</b> 로
- * 스키마에 반영된다. 값이 빠지면 런타임 NPE 가 아니라 <b>앱 기동 시점</b>에 검증
- * 실패로 잡힌다.
- *
- * <p>{@code flowVersion} 은 기본값 {@code "v1"} 을 가지므로 생략할 수 있다. 다만 빈
- * 문자열을 명시하면 {@code BIZ-LOG:INVALID_CONTEXT} 로 거부된다
+ * <p>두 파라미터 모두 기본값이 있으므로 이름만 주고 쓸 수 있다. 다만 빈 문자열을
+ * 명시하면 {@code BIZ-LOG:INVALID_CONTEXT} 로 거부된다
  * ({@link org.mycompany.bizcom.log.model.LogContext} 참고).
  *
  * <pre>{@code
- * <biz-log:config name="BizLog_Config" baseTableName="TB_IF_LOG"/>
- * <biz-log:config name="BizLog_Config_V2" flowVersion="v2" baseTableName="TB_IF_LOG"/>
+ * <biz-log:config name="BizLog_Config"/>
+ * <biz-log:config name="BizLog_Config_V2" flowVersion="v2" baseTableName="TB_IF_LOG_HIST"/>
  * }</pre>
  */
 @Configuration(name = "config")
@@ -36,9 +32,10 @@ public class BizComLogConfiguration {
   private String flowVersion;
 
   @Parameter
+  @Optional(defaultValue = "MULE_BIZ_INTERFACE_LOG")
   @DisplayName("Base Table Name")
-  @Summary("로그가 기록될 기준 테이블명")
-  @Example("TB_IF_LOG")
+  @Summary("로그가 기록될 기준 테이블명 (기본값 MULE_BIZ_INTERFACE_LOG)")
+  @Example("MULE_BIZ_INTERFACE_LOG")
   private String baseTableName;
 
   public String getFlowVersion() {
