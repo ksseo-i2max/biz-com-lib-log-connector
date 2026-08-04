@@ -15,12 +15,12 @@
 
   <!-- (1) 로그 대상 2개 + 컨텍스트 4개가 모두 attributes 로 노출되는지 -->
   <flow name="scopeExposesAttributes">
-    <biz-log:with-context flowVersion="1.0.0"
+    <biz-log:with-context flowVersion="v1"
                           baseTableName="TB_IF_LOG"
-                          triggerType="EVENT"
+                          triggerType="API"
                           actor="batch-user"
                           targetAppName="SFDC"
-                          status="READY">
+                          status="SUCCESS">
       <set-payload value="#[
         attributes.flowVersion ++ '|' ++
         attributes.baseTableName ++ '|' ++
@@ -34,12 +34,12 @@
 
   <!-- (2) 원본 payload 가 보존되는지 (pass-through) -->
   <flow name="scopePreservesPayload">
-    <biz-log:with-context flowVersion="1.0.0"
+    <biz-log:with-context flowVersion="v1"
                           baseTableName="TB_IF_LOG"
-                          triggerType="MANUAL"
+                          triggerType="API"
                           actor="tester"
                           targetAppName="LOCAL"
-                          status="RUNNING">
+                          status="FAIL">
       <logger level="DEBUG" message="#[attributes.actor]"/>
     </biz-log:with-context>
   </flow>
@@ -51,12 +51,12 @@
         BIZ-LOG:* 로 감싸이면 이 단정이 깨진다.
   -->
   <flow name="scopePropagatesInnerErrorType">
-    <biz-log:with-context flowVersion="1.0.0"
+    <biz-log:with-context flowVersion="v1"
                           baseTableName="TB_IF_LOG"
-                          triggerType="EVENT"
+                          triggerType="API"
                           actor="batch-user"
                           targetAppName="SFDC"
-                          status="FAILED">
+                          status="FAIL">
       <set-payload value="#[1 / 0 as String {format: 'x'}]"/>
     </biz-log:with-context>
     <error-handler>
@@ -66,14 +66,25 @@
     </error-handler>
   </flow>
 
-  <!-- (4) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
+  <!-- (4) flowVersion 을 생략하면 기본값 "v1" 이 적용되는지 -->
+  <flow name="scopeAppliesFlowVersionDefault">
+    <biz-log:with-context baseTableName="TB_IF_LOG"
+                          triggerType="BATCH"
+                          actor="batch-user"
+                          targetAppName="SFDC"
+                          status="SUCCESS">
+      <set-payload value="#[attributes.flowVersion]"/>
+    </biz-log:with-context>
+  </flow>
+
+  <!-- (5) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
   <flow name="scopeRejectsBlankParameter">
     <biz-log:with-context flowVersion=" "
                           baseTableName="TB_IF_LOG"
-                          triggerType="EVENT"
+                          triggerType="API"
                           actor="batch-user"
                           targetAppName="SFDC"
-                          status="READY">
+                          status="SUCCESS">
       <logger level="DEBUG" message="여기까지 오면 안 된다"/>
     </biz-log:with-context>
     <error-handler>

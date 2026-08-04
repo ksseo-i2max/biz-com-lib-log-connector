@@ -35,7 +35,7 @@ public class LogContextParameters {
 
   @Parameter
   @DisplayName("Status")
-  @Summary("로그 시점의 처리 상태")
+  @Summary("처리 결과 (SUCCESS / FAIL)")
   private Status status;
 
   public TriggerType getTriggerType() {

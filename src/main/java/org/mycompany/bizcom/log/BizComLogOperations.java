@@ -40,9 +40,9 @@ public class BizComLogOperations {
    * attributes 로 주입한다.
    *
    * <pre>{@code
-   * <biz-log:with-context flowVersion="1.0.0" baseTableName="TB_IF_LOG"
-   *     triggerType="EVENT" actor="batch-user"
-   *     targetAppName="SFDC" status="READY">
+   * <biz-log:with-context flowVersion="v1" baseTableName="TB_IF_LOG"
+   *     triggerType="API" actor="batch-user"
+   *     targetAppName="SFDC" status="SUCCESS">
    *   <logger message="#[attributes.actor]"/>
    *   <flow-ref name="businessFlow"/>
    * </biz-log:with-context>
@@ -106,8 +106,8 @@ public class BizComLogOperations {
    *
    * <pre>{@code
    * <biz-log:build-context config-ref="BizLog_Config"
-   *     triggerType="SCHEDULE" actor="scheduler"
-   *     targetAppName="SAP" status="RUNNING"
+   *     triggerType="BATCH" actor="scheduler"
+   *     targetAppName="SAP" status="FAIL"
    *     target="ctx"/>
    *
    * <http:request .../>                    <!-- 메시지 교체됨 -->

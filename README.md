@@ -31,8 +31,8 @@
 <flow name="scopeStyleFlow">
   <biz-log:with-context flowVersion="${biz.log.flowVersion}"
       baseTableName="${biz.log.baseTableName}"
-      triggerType="EVENT" actor="batch-user"
-      targetAppName="SFDC" status="READY">
+      triggerType="API" actor="batch-user"
+      targetAppName="SFDC" status="SUCCESS">
 
     <logger message="#[attributes.actor ++ ' → ' ++ attributes.baseTableName]"/>
     <flow-ref name="businessFlow"/>
@@ -53,25 +53,41 @@
 > 그래서 `flowVersion` / `baseTableName` 을 Scope 자체 파라미터로 받습니다. 앱마다 한 번만
 > 정하려면 위 예시처럼 `${...}` property placeholder 를 쓰면 됩니다.
 
+`flowVersion` 은 기본값 `"v1"` 이 있어 생략할 수 있습니다.
+
+```xml
+<biz-log:with-context baseTableName="TB_IF_LOG"
+    triggerType="BATCH" actor="batch-user"
+    targetAppName="SFDC" status="SUCCESS">
+  ...
+</biz-log:with-context>
+```
+
 ### 2. Configuration + Operation — `<biz-log:build-context>`
 
 Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값을 Configuration 에서 가져옵니다.
 
 ```xml
 <biz-log:config name="BizLog_Config"
-                flowVersion="1.0.0"
+                baseTableName="TB_IF_LOG"/>
+
+<!-- flowVersion 을 다르게 쓰려면 명시 -->
+<biz-log:config name="BizLog_Config_V2"
+                flowVersion="v2"
                 baseTableName="TB_IF_LOG"/>
 ```
 
-`flowVersion`, `baseTableName` 모두 **필수**입니다. 누락 시 앱 기동 시점에 검증 실패합니다.
+`baseTableName` 은 **필수**입니다. 누락 시 앱 기동 시점에 검증 실패합니다.
+`flowVersion` 은 기본값 `"v1"` 이 있어 생략 가능합니다. 단, 빈 문자열을 명시하면
+`BIZ-LOG:INVALID_CONTEXT` 로 거부됩니다.
 
 `target` 과 함께 쓰면 **진짜 flow variable** 이 되어 메시지가 교체되어도 살아남습니다.
 
 ```xml
 <flow name="varStyleFlow">
   <biz-log:build-context config-ref="BizLog_Config"
-      triggerType="SCHEDULE" actor="scheduler"
-      targetAppName="SAP" status="RUNNING"
+      triggerType="BATCH" actor="scheduler"
+      targetAppName="SAP" status="FAIL"
       target="ctx"/>
 
   <http:request .../>                      <!-- 메시지 교체됨 -->
@@ -79,6 +95,27 @@ Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값�
   <flow-ref name="businessFlow"/>
 </flow>
 ```
+
+## 파라미터
+
+### 로그 대상 (Scope 파라미터 / Configuration)
+
+| 파라미터 | 필수 | 기본값 | 설명 |
+|---|---|---|---|
+| `flowVersion` | 아니오 | `v1` | 로그 스키마 / 플로우 버전 식별자 |
+| `baseTableName` | **예** | — | 로그가 기록될 기준 테이블명 |
+
+### 컨텍스트 (Scope / Operation 공통, 4개 모두 필수)
+
+| 파라미터 | 타입 | 값 |
+|---|---|---|
+| `triggerType` | enum | `API` (외부 API 호출로 기동), `BATCH` (배치 / 스케줄러로 기동) |
+| `actor` | String | 작업 주체 (사용자 ID 또는 시스템 계정) |
+| `targetAppName` | String | 연동 대상 애플리케이션 명 |
+| `status` | enum | `SUCCESS` (정상 처리), `FAIL` (실패) |
+
+enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하거나 제거하면 이미 배포된
+앱의 `triggerType="..."` / `status="..."` 값이 기동 시점에 깨집니다.
 
 ## 어느 쪽을 쓸지
 
@@ -198,6 +235,4 @@ mvn verify -Pfunctional-tests
 
 ## TODO
 
-- [ ] `TriggerType` / `Status` enum 상수를 실제 도메인 값으로 교체
-      (상수 변경은 이미 작성된 앱 XML 을 깨뜨리므로 초기에 확정)
 - [ ] EE 자격증명 확보 후 `mvn verify -Pfunctional-tests` 로 DSL / 이벤트 전파 검증

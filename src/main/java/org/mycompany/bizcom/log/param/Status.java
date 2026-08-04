@@ -1,23 +1,16 @@
 package org.mycompany.bizcom.log.param;
 
 /**
- * 로그 시점의 처리 상태.
+ * 처리 결과.
  *
- * <p><b>주의:</b> 아래 상수는 임시안이다. 실제 도메인 값으로 교체할 것.
- * enum 상수를 변경하면 이미 작성된 앱 XML 이 스키마 검증에서 깨지므로
- * 가급적 초기에 확정하는 것이 좋다.
+ * <p>enum 상수는 앱 XML 의 스키마 검증 대상이다. 상수를 변경하거나 제거하면 이미 배포된
+ * 앱의 {@code status="..."} 값이 기동 시점에 깨지므로 신중히 다룰 것.
  */
 public enum Status {
 
-  /** 처리 대기 */
-  READY,
-
-  /** 처리 중 */
-  RUNNING,
-
-  /** 정상 완료 */
-  DONE,
+  /** 정상 처리 */
+  SUCCESS,
 
   /** 실패 */
-  FAILED
+  FAIL
 }

@@ -5,10 +5,10 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.fail;
-import static org.mycompany.bizcom.log.param.Status.READY;
-import static org.mycompany.bizcom.log.param.Status.RUNNING;
-import static org.mycompany.bizcom.log.param.TriggerType.EVENT;
-import static org.mycompany.bizcom.log.param.TriggerType.SCHEDULE;
+import static org.mycompany.bizcom.log.param.Status.FAIL;
+import static org.mycompany.bizcom.log.param.Status.SUCCESS;
+import static org.mycompany.bizcom.log.param.TriggerType.API;
+import static org.mycompany.bizcom.log.param.TriggerType.BATCH;
 
 import java.util.Map;
 
@@ -20,53 +20,55 @@ import org.mycompany.bizcom.log.error.LogErrorType;
  * {@link LogContext} 단위 테스트.
  *
  * <p>Mule 컨테이너를 띄우지 않으므로 EE 리포지터리 접근 없이 어디서나 실행된다.
- * 컨테이너가 필요한 DSL / 이벤트 전파 검증은 {@code *FunctionalTestCase} 에 있고,
- * 그쪽은 EE 자격증명이 있을 때 {@code -Pfunctional-tests} 로 실행한다.
+ * 컨테이너가 필요한 DSL / 이벤트 전파 / 파라미터 기본값 검증은 {@code *FunctionalTestCase}
+ * 에 있고, 그쪽은 EE 자격증명이 있을 때 {@code -Pfunctional-tests} 로 실행한다.
  */
 public class LogContextTestCase {
 
   @Test
   public void retainsAllSixValues() {
-    LogContext ctx = LogContext.of("1.0.0", "TB_IF_LOG", EVENT, "batch-user", "SFDC", READY);
+    LogContext ctx = LogContext.of("v1", "TB_IF_LOG", API, "batch-user", "SFDC", SUCCESS);
 
-    assertThat(ctx.getFlowVersion(), is("1.0.0"));
+    assertThat(ctx.getFlowVersion(), is("v1"));
     assertThat(ctx.getBaseTableName(), is("TB_IF_LOG"));
-    assertThat(ctx.getTriggerType(), is(EVENT));
+    assertThat(ctx.getTriggerType(), is(API));
     assertThat(ctx.getActor(), is("batch-user"));
     assertThat(ctx.getTargetAppName(), is("SFDC"));
-    assertThat(ctx.getStatus(), is(READY));
+    assertThat(ctx.getStatus(), is(SUCCESS));
   }
 
   @Test
   public void toMapKeepsInsertionOrderAndSerializesEnumsAsNames() {
     Map<String, Object> map =
-        LogContext.of("2.1.0", "TB_HIST", SCHEDULE, "scheduler", "SAP", RUNNING).toMap();
+        LogContext.of("v2", "TB_HIST", BATCH, "scheduler", "SAP", FAIL).toMap();
 
     assertThat(map.keySet(),
         contains("flowVersion", "baseTableName", "triggerType", "actor", "targetAppName", "status"));
-    assertThat(map.get("triggerType"), is("SCHEDULE"));
-    assertThat(map.get("status"), is("RUNNING"));
+    assertThat(map.get("flowVersion"), is("v2"));
+    assertThat(map.get("triggerType"), is("BATCH"));
+    assertThat(map.get("status"), is("FAIL"));
     assertThat(map.get("actor"), is("scheduler"));
   }
 
   /**
-   * Mule 은 required 파라미터의 존재만 보장하고 빈 문자열은 통과시킨다.
-   * 그 구멍을 {@code BIZ-LOG:INVALID_CONTEXT} 로 막는지 확인한다.
+   * {@code flowVersion} 은 스키마 기본값 {@code "v1"} 을 가지므로 보통 비어 있지 않지만,
+   * 사용자가 빈 문자열을 명시하면 런타임이 그대로 넘긴다. 그 구멍을
+   * {@code BIZ-LOG:INVALID_CONTEXT} 로 막는지 확인한다.
    */
   @Test
   public void rejectsBlankStringsWithInvalidContext() {
     assertRejected(null, "TB_IF_LOG", "batch-user", "SFDC");
     assertRejected("", "TB_IF_LOG", "batch-user", "SFDC");
     assertRejected("   ", "TB_IF_LOG", "batch-user", "SFDC");
-    assertRejected("1.0.0", " ", "batch-user", "SFDC");
-    assertRejected("1.0.0", "TB_IF_LOG", " ", "SFDC");
-    assertRejected("1.0.0", "TB_IF_LOG", "batch-user", " ");
+    assertRejected("v1", " ", "batch-user", "SFDC");
+    assertRejected("v1", "TB_IF_LOG", " ", "SFDC");
+    assertRejected("v1", "TB_IF_LOG", "batch-user", " ");
   }
 
   /** enum 파라미터는 null 이어도 컨텍스트 생성 자체는 막지 않는다 (스키마가 이미 필수 강제). */
   @Test
   public void allowsNullEnumsAndRendersThemAsNullInMap() {
-    LogContext ctx = LogContext.of("1.0.0", "TB_IF_LOG", null, "batch-user", "SFDC", null);
+    LogContext ctx = LogContext.of("v1", "TB_IF_LOG", null, "batch-user", "SFDC", null);
 
     assertThat(ctx.getTriggerType(), is((Object) null));
     assertThat(ctx.toMap().get("triggerType"), is((Object) null));
@@ -75,19 +77,21 @@ public class LogContextTestCase {
 
   @Test
   public void equalityIsValueBased() {
-    LogContext a = LogContext.of("1.0.0", "TB_IF_LOG", EVENT, "batch-user", "SFDC", READY);
-    LogContext b = LogContext.of("1.0.0", "TB_IF_LOG", EVENT, "batch-user", "SFDC", READY);
-    LogContext c = LogContext.of("1.0.0", "TB_IF_LOG", EVENT, "batch-user", "SFDC", RUNNING);
+    LogContext a = LogContext.of("v1", "TB_IF_LOG", API, "batch-user", "SFDC", SUCCESS);
+    LogContext b = LogContext.of("v1", "TB_IF_LOG", API, "batch-user", "SFDC", SUCCESS);
+    LogContext c = LogContext.of("v1", "TB_IF_LOG", API, "batch-user", "SFDC", FAIL);
+    LogContext d = LogContext.of("v2", "TB_IF_LOG", API, "batch-user", "SFDC", SUCCESS);
 
     assertThat(a, is(b));
     assertThat(a.hashCode(), is(b.hashCode()));
     assertThat(a, is(not(c)));
+    assertThat(a, is(not(d)));
   }
 
   @Test
   public void toMapIsUnmodifiable() {
     Map<String, Object> map =
-        LogContext.of("1.0.0", "TB_IF_LOG", EVENT, "batch-user", "SFDC", READY).toMap();
+        LogContext.of("v1", "TB_IF_LOG", API, "batch-user", "SFDC", SUCCESS).toMap();
     try {
       map.put("injected", "value");
       fail("toMap() 결과는 수정 불가여야 한다");
@@ -101,7 +105,7 @@ public class LogContextTestCase {
                                      String actor,
                                      String targetAppName) {
     try {
-      LogContext.of(flowVersion, baseTableName, EVENT, actor, targetAppName, READY);
+      LogContext.of(flowVersion, baseTableName, API, actor, targetAppName, SUCCESS);
       fail("공백 파라미터는 거부되어야 한다");
     } catch (ModuleException e) {
       assertThat(e.getType(), is(LogErrorType.INVALID_CONTEXT));

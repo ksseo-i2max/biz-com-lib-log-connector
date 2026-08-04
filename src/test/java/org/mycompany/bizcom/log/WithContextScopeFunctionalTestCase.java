@@ -28,7 +28,7 @@ public class WithContextScopeFunctionalTestCase extends MuleArtifactFunctionalTe
     CoreEvent event = flowRunner("scopeExposesAttributes").run();
 
     assertThat(event.getMessage().getPayload().getValue(),
-        is("1.0.0|TB_IF_LOG|EVENT|batch-user|SFDC|READY"));
+        is("v1|TB_IF_LOG|API|batch-user|SFDC|SUCCESS"));
   }
 
   @Test
@@ -51,6 +51,14 @@ public class WithContextScopeFunctionalTestCase extends MuleArtifactFunctionalTe
     String errorType = (String) event.getMessage().getPayload().getValue();
     assertThat(errorType, not(startsWith("BIZ-LOG:")));
     assertThat(errorType, is("MULE:EXPRESSION"));
+  }
+
+  /** {@code flowVersion} 생략 시 스키마 기본값 {@code "v1"} 이 적용되어야 한다. */
+  @Test
+  public void appliesFlowVersionDefault() throws Exception {
+    CoreEvent event = flowRunner("scopeAppliesFlowVersionDefault").run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("v1"));
   }
 
   @Test

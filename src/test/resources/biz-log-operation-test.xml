@@ -9,16 +9,16 @@
         http://www.mulesoft.org/schema/mule/biz-log/current/mule-biz-log.xsd">
 
   <biz-log:config name="BizLog_Config"
-                  flowVersion="2.1.0"
+                  flowVersion="v2"
                   baseTableName="TB_IF_LOG_HIST"/>
 
   <!-- (1) target 으로 지정한 variable 에 컨텍스트가 실리는지 -->
   <flow name="operationStoresContextInVariable">
     <biz-log:build-context config-ref="BizLog_Config"
-                           triggerType="SCHEDULE"
+                           triggerType="BATCH"
                            actor="scheduler"
                            targetAppName="SAP"
-                           status="RUNNING"
+                           status="FAIL"
                            target="ctx"/>
     <set-payload value="#[
       vars.ctx.flowVersion ++ '|' ++
@@ -36,10 +36,10 @@
   -->
   <flow name="variableSurvivesMessageReplacement">
     <biz-log:build-context config-ref="BizLog_Config"
-                           triggerType="EVENT"
+                           triggerType="API"
                            actor="integration-user"
                            targetAppName="LEGACY"
-                           status="DONE"
+                           status="SUCCESS"
                            target="ctx"/>
 
     <!-- 메시지 전체 교체를 모사 -->
@@ -49,13 +49,27 @@
     <set-payload value="#[vars.ctx.actor ++ '|' ++ vars.ctx.status]"/>
   </flow>
 
-  <!-- (3) target 없이 쓰면 payload 로 나오는지 -->
-  <flow name="operationWithoutTargetReturnsPayload">
-    <biz-log:build-context config-ref="BizLog_Config"
-                           triggerType="MANUAL"
+  <!-- (3) config 에서 flowVersion 을 생략하면 기본값 "v1" 이 적용되는지 -->
+  <biz-log:config name="BizLog_Config_Default"
+                  baseTableName="TB_IF_LOG"/>
+
+  <flow name="configAppliesFlowVersionDefault">
+    <biz-log:build-context config-ref="BizLog_Config_Default"
+                           triggerType="API"
                            actor="ops"
                            targetAppName="ADMIN"
-                           status="READY"/>
+                           status="SUCCESS"
+                           target="ctx"/>
+    <set-payload value="#[vars.ctx.flowVersion]"/>
+  </flow>
+
+  <!-- (4) target 없이 쓰면 payload 로 나오는지 -->
+  <flow name="operationWithoutTargetReturnsPayload">
+    <biz-log:build-context config-ref="BizLog_Config"
+                           triggerType="API"
+                           actor="ops"
+                           targetAppName="ADMIN"
+                           status="SUCCESS"/>
     <set-payload value="#[payload.actor ++ '|' ++ payload.targetAppName]"/>
   </flow>
 

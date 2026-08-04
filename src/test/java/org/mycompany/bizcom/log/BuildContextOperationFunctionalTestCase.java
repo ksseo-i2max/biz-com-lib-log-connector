@@ -25,14 +25,22 @@ public class BuildContextOperationFunctionalTestCase extends MuleArtifactFunctio
     CoreEvent event = flowRunner("operationStoresContextInVariable").run();
 
     assertThat(event.getMessage().getPayload().getValue(),
-        is("2.1.0|TB_IF_LOG_HIST|SCHEDULE|scheduler|SAP|RUNNING"));
+        is("v2|TB_IF_LOG_HIST|BATCH|scheduler|SAP|FAIL"));
   }
 
   @Test
   public void variableSurvivesMessageReplacement() throws Exception {
     CoreEvent event = flowRunner("variableSurvivesMessageReplacement").run();
 
-    assertThat(event.getMessage().getPayload().getValue(), is("integration-user|DONE"));
+    assertThat(event.getMessage().getPayload().getValue(), is("integration-user|SUCCESS"));
+  }
+
+  /** Configuration 에서 {@code flowVersion} 생략 시 기본값 {@code "v1"} 이 적용되어야 한다. */
+  @Test
+  public void appliesFlowVersionDefault() throws Exception {
+    CoreEvent event = flowRunner("configAppliesFlowVersionDefault").run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("v1"));
   }
 
   @Test
