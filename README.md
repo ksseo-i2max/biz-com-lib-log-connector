@@ -119,7 +119,7 @@ enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하
 
 ## 컨텍스트에 실리는 항목
 
-`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 10개가 노출됩니다.
+`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 9개가 노출됩니다.
 
 | 항목 | 타입 | 출처 |
 |---|---|---|
@@ -129,26 +129,24 @@ enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하
 | `actor` | String | 파라미터 |
 | `targetAppName` | String | 파라미터 |
 | `status` | `Status` | 파라미터 |
-| `eventTime` | `LocalDateTime` | 커넥터가 자동 기록 |
 | `startTime` | `LocalDateTime` | 커넥터가 자동 기록 |
 | `originPayload` | Object | 컴포넌트 진입 **전** payload |
 | `originAttributes` | Object | 컴포넌트 진입 **전** attributes |
 
 ```xml
-<logger message="#[attributes.eventTime]"/>
+<logger message="#[attributes.startTime]"/>
 <logger message="#[attributes.originPayload]"/>
 <logger message="#[attributes.originAttributes.headers]"/>   <!-- 예: HTTP 요청 헤더 -->
 ```
 
-### eventTime 과 startTime
+### startTime
 
-둘 다 컨텍스트 생성 시각으로 채워지며 **같은 값**입니다. `LocalDateTime.now()` 를 한 번만
-호출해 양쪽에 넣기 때문에 미세하게 어긋나지 않습니다. Scope 의 경우 **하위 체인 실행 전**,
-즉 스코프 진입 시각입니다.
+컨텍스트 생성 시각이 `LocalDateTime.now()` 로 채워집니다. Scope 의 경우 **하위 체인 실행
+전**, 즉 스코프 진입 시각입니다.
 
-두 값이 항상 같으므로 현재로서는 이름만 다른 중복입니다. 원래 의도가 "처리 소요시간 측정"
-이라면 종료 시각을 잡는 지점이 따로 있어야 하므로, 스코프가 체인 실행을 마친 뒤 `endTime`
-을 채우는 방식이 필요합니다. 필요하시면 추가하겠습니다.
+처리 소요시간을 재려면 종료 시각이 필요합니다. 스코프가 체인 실행을 마친 뒤 `endTime` 을
+채우는 방식이 되며, 그 값은 체인 **안에서는** 볼 수 없고 스코프가 반환하는 attributes 에만
+실립니다. 필요하시면 추가하겠습니다.
 
 ### originPayload / originAttributes
 

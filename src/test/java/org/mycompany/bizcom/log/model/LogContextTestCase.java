@@ -28,8 +28,8 @@ import org.mycompany.bizcom.log.error.LogErrorType;
  * 컨테이너가 필요한 DSL / 이벤트 전파 / 파라미터 기본값 검증은 {@code *FunctionalTestCase}
  * 에 있고, 그쪽은 EE 자격증명이 있을 때 {@code -Pfunctional-tests} 로 실행한다.
  *
- * <p>시각이 걸린 단정은 빌더로 {@code eventTime} / {@code startTime} 을 명시해 결정적으로
- * 만든다. 자동 스탬핑은 별도 테스트에서 범위로만 검증한다.
+ * <p>{@code startTime} 이 걸린 단정은 빌더로 명시해 결정적으로 만든다. 자동 스탬핑은
+ * 별도 테스트에서 범위로만 검증한다.
  */
 public class LogContextTestCase {
 
@@ -44,7 +44,6 @@ public class LogContextTestCase {
         .actor("batch-user")
         .targetAppName("SFDC")
         .status(SUCCESS)
-        .eventTime(FIXED)
         .startTime(FIXED);
   }
 
@@ -64,18 +63,14 @@ public class LogContextTestCase {
     assertThat(ctx.getActor(), is("batch-user"));
     assertThat(ctx.getTargetAppName(), is("SFDC"));
     assertThat(ctx.getStatus(), is(SUCCESS));
-    assertThat(ctx.getEventTime(), is(FIXED));
     assertThat(ctx.getStartTime(), is(FIXED));
     assertThat(ctx.getOriginPayload(), is(sameInstance(payload)));
     assertThat(ctx.getOriginAttributes(), is(sameInstance(attributes)));
   }
 
-  /**
-   * 두 시각을 지정하지 않으면 현재 시각으로 채워지고, {@code now()} 를 한 번만 호출하므로
-   * 둘이 <b>정확히 같아야</b> 한다. 두 번 호출하면 미세하게 어긋나 버그처럼 보인다.
-   */
+  /** {@code startTime} 을 지정하지 않으면 빌드 시점의 현재 시각으로 채워진다. */
   @Test
-  public void stampsBothTimesFromASingleNowCall() {
+  public void stampsCurrentTimeWhenStartTimeOmitted() {
     LocalDateTime before = LocalDateTime.now();
     LogContext ctx = LogContext.builder()
         .flowVersion("v1")
@@ -87,32 +82,19 @@ public class LogContextTestCase {
         .build();
     LocalDateTime after = LocalDateTime.now();
 
-    assertThat(ctx.getEventTime(), is(notNullValue()));
-    assertThat(ctx.getStartTime(), is(ctx.getEventTime()));
-    assertFalse("eventTime 이 호출 이전이면 안 된다", ctx.getEventTime().isBefore(before));
-    assertFalse("eventTime 이 호출 이후이면 안 된다", ctx.getEventTime().isAfter(after));
+    assertThat(ctx.getStartTime(), is(notNullValue()));
+    assertFalse("startTime 이 빌드 이전이면 안 된다", ctx.getStartTime().isBefore(before));
+    assertFalse("startTime 이 빌드 이후이면 안 된다", ctx.getStartTime().isAfter(after));
   }
 
-  /** 한쪽만 지정하면 나머지 한쪽만 현재 시각으로 채워진다. */
+  /** 명시한 {@code startTime} 은 덮어써지지 않는다. */
   @Test
-  public void fillsOnlyTheMissingTime() {
-    LogContext ctx = LogContext.builder()
-        .flowVersion("v1")
-        .baseTableName("TB_IF_LOG")
-        .triggerType(API)
-        .actor("batch-user")
-        .targetAppName("SFDC")
-        .status(SUCCESS)
-        .startTime(FIXED)
-        .build();
-
-    assertThat(ctx.getStartTime(), is(FIXED));
-    assertThat(ctx.getEventTime(), is(notNullValue()));
-    assertThat(ctx.getEventTime(), is(not(FIXED)));
+  public void keepsExplicitStartTime() {
+    assertThat(valid().build().getStartTime(), is(FIXED));
   }
 
   /**
-   * 시각은 {@link LocalDateTime} 객체로, 원본 메시지는 변환 없이 그대로 남긴다.
+   * {@code startTime} 은 {@link LocalDateTime} 객체로, 원본 메시지는 변환 없이 그대로 남긴다.
    * JDBC 가 시각을 TIMESTAMP 로 바인딩하므로 문자열로 바꾸면 타입 정보를 잃는다.
    */
   @Test
@@ -126,18 +108,16 @@ public class LogContextTestCase {
         .actor("scheduler")
         .targetAppName("SAP")
         .status(FAIL)
-        .eventTime(FIXED)
         .startTime(FIXED)
         .originPayload(payload)
         .build()
         .toMap();
 
     assertThat(map.keySet(), contains("flowVersion", "baseTableName", "triggerType", "actor",
-        "targetAppName", "status", "eventTime", "startTime", "originPayload", "originAttributes"));
+        "targetAppName", "status", "startTime", "originPayload", "originAttributes"));
     assertThat(map.get("flowVersion"), is("v2"));
     assertThat(map.get("triggerType"), is("BATCH"));
     assertThat(map.get("status"), is("FAIL"));
-    assertThat(map.get("eventTime"), is(FIXED));
     assertThat(map.get("startTime"), is(FIXED));
     assertThat(map.get("originPayload"), is(sameInstance(payload)));
     assertThat(map.get("originAttributes"), is((Object) null));
@@ -178,24 +158,23 @@ public class LogContextTestCase {
   }
 
   /**
-   * 두 시각은 값 비교에 참여하지만 {@code originPayload} / {@code originAttributes} 는
-   * 제외된다 — 사용자의 임의 객체라 identity 기반 {@code equals} 인 경우가 많다.
+   * {@code startTime} 은 값 비교에 참여하지만 {@code originPayload} /
+   * {@code originAttributes} 는 제외된다 — 사용자의 임의 객체라 identity 기반
+   * {@code equals} 인 경우가 많다.
    */
   @Test
-  public void equalityCoversTimesButNotOriginMessage() {
+  public void equalityCoversStartTimeButNotOriginMessage() {
     LogContext a = valid().build();
     LogContext b = valid().build();
     LogContext differentStatus = valid().status(FAIL).build();
     LogContext differentVersion = valid().flowVersion("v2").build();
-    LogContext differentEventTime = valid().eventTime(FIXED.plusNanos(1)).build();
-    LogContext differentStartTime = valid().startTime(FIXED.plusSeconds(1)).build();
+    LogContext differentStartTime = valid().startTime(FIXED.plusNanos(1)).build();
     LogContext differentPayload = valid().originPayload(new Object()).build();
 
     assertThat(a, is(b));
     assertThat(a.hashCode(), is(b.hashCode()));
     assertThat(a, is(not(differentStatus)));
     assertThat(a, is(not(differentVersion)));
-    assertThat(a, is(not(differentEventTime)));
     assertThat(a, is(not(differentStartTime)));
     assertThat("원본 메시지는 비교 대상이 아니다", a, is(differentPayload));
   }

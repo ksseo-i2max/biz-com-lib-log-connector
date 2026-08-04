@@ -45,15 +45,12 @@ public class BuildContextOperationFunctionalTestCase extends MuleArtifactFunctio
     assertThat(event.getMessage().getPayload().getValue(), is("INCOMING-BODY"));
   }
 
-  /**
-   * {@code eventTime} 이 채워지고 {@code startTime} 과 정확히 같아야 한다.
-   * 커넥터가 {@code now()} 를 한 번만 호출하므로 두 값이 어긋나면 회귀다.
-   */
+  /** {@code startTime} 이 커넥터에 의해 자동으로 채워져야 한다. */
   @Test
-  public void stampsBothTimesIdentically() throws Exception {
-    CoreEvent event = flowRunner("operationStampsBothTimesIdentically").run();
+  public void stampsStartTime() throws Exception {
+    CoreEvent event = flowRunner("operationStampsStartTime").run();
 
-    assertThat(event.getMessage().getPayload().getValue(), is("TT"));
+    assertThat(event.getMessage().getPayload().getValue(), is("T"));
   }
 
   /** Configuration 에서 {@code flowVersion} 생략 시 기본값 {@code "v1"} 이 적용되어야 한다. */

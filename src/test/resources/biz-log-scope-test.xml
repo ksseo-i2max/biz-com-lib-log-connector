@@ -93,20 +93,14 @@
     </biz-log:with-context>
   </flow>
 
-  <!--
-    (6) eventTime / startTime 이 채워지고 서로 같은지.
-        now() 를 두 번 호출하면 미세하게 어긋나므로 동일성까지 확인한다.
-  -->
-  <flow name="scopeStampsBothTimesIdentically">
+  <!-- (6) startTime 이 채워지는지 -->
+  <flow name="scopeStampsStartTime">
     <biz-log:with-context baseTableName="TB_IF_LOG"
                           triggerType="BATCH"
                           actor="batch-user"
                           targetAppName="SFDC"
                           status="SUCCESS">
-      <set-payload value="#[
-        (if (attributes.eventTime != null) 'T' else 'F') ++
-        (if (attributes.startTime == attributes.eventTime) 'T' else 'F')
-      ]"/>
+      <set-payload value="#[if (attributes.startTime != null) 'T' else 'F']"/>
     </biz-log:with-context>
   </flow>
 

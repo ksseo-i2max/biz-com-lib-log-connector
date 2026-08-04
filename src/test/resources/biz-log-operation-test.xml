@@ -64,18 +64,15 @@
     <set-payload value="#[vars.ctx.originPayload]"/>
   </flow>
 
-  <!-- (4) eventTime / startTime 이 채워지고 서로 같은지 -->
-  <flow name="operationStampsBothTimesIdentically">
+  <!-- (4) startTime 이 채워지는지 -->
+  <flow name="operationStampsStartTime">
     <biz-log:build-context config-ref="BizLog_Config"
                            triggerType="BATCH"
                            actor="scheduler"
                            targetAppName="SAP"
                            status="SUCCESS"
                            target="ctx"/>
-    <set-payload value="#[
-      (if (vars.ctx.eventTime != null) 'T' else 'F') ++
-      (if (vars.ctx.startTime == vars.ctx.eventTime) 'T' else 'F')
-    ]"/>
+    <set-payload value="#[if (vars.ctx.startTime != null) 'T' else 'F']"/>
   </flow>
 
   <!-- (5) config 에서 flowVersion 을 생략하면 기본값 "v1" 이 적용되는지 -->
