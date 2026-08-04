@@ -92,6 +92,25 @@ public class LoggingContextScopeFunctionalTestCase extends MuleArtifactFunctiona
     assertThat(event.getMessage().getPayload().getValue(), is("T"));
   }
 
+  /**
+   * {@code sourceAppName} 은 DSL 기본값 {@code #[p('app.name')]} 으로 채워져야 한다.
+   * 앱 이름은 환경마다 다르므로 값을 직접 단정하지 않고 플로우 안에서 같은 표현식과 비교한다.
+   */
+  @Test
+  public void derivesSourceAppNameFromAppNameProperty() throws Exception {
+    CoreEvent event = flowRunner("scopeDerivesSourceAppNameFromProperty").run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("SAME"));
+  }
+
+  /** 명시한 {@code sourceAppName} 은 기본값을 덮어써야 한다. */
+  @Test
+  public void acceptsExplicitSourceAppName() throws Exception {
+    CoreEvent event = flowRunner("scopeAcceptsExplicitSourceAppName").run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("biz-com-sys-caller"));
+  }
+
   /** 모든 파라미터에 기본값이 있으므로 속성 하나 없이도 스코프가 동작해야 한다. */
   @Test
   public void appliesDefaultsWhenAllOmitted() throws Exception {

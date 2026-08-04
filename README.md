@@ -8,7 +8,7 @@
 | Mule Runtime | 4.9.17 |
 | JDK | 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
-| 현재 버전 | `1.0.3-SNAPSHOT` |
+| 현재 버전 | `1.0.4-SNAPSHOT` |
 | XML prefix | `biz-log` |
 | Base package | `org.mycompany.bizcom.log` |
 
@@ -54,7 +54,7 @@
 > 그래서 `flowVersion` / `baseTableName` 을 Scope 자체 파라미터로 받습니다. 앱마다 한 번만
 > 정하려면 위 예시처럼 `${...}` property placeholder 를 쓰면 됩니다.
 
-6개 파라미터 모두 기본값이 있어 속성 없이도 동작합니다.
+7개 파라미터 모두 기본값이 있어 속성 없이도 동작합니다.
 
 ```xml
 <biz-log:logging-context>
@@ -110,8 +110,18 @@ Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값�
 |---|---|---|---|
 | `triggerType` | enum | `API` | `API` (외부 API 호출로 기동), `BATCH` (배치 / 스케줄러로 기동) |
 | `actor` | String | `SFDC` | 작업 주체 (사용자 ID 또는 시스템 계정) |
+| `sourceAppName` | String | `#[p('app.name')]` | 호출 출발 애플리케이션 명 |
 | `targetAppName` | String | `biz-com-exp-listener` | 연동 대상 애플리케이션 명 |
 | `status` | enum | `SUCCESS` | `SUCCESS` (정상 처리), `FAIL` (실패) |
+
+`sourceAppName` 만 기본값이 **리터럴이 아니라 표현식**입니다. `p('app.name')` 은 Mule 이
+배포된 애플리케이션 이름을 돌려주므로, 커넥터를 쓰는 앱이 자기 이름을 따로 적지 않아도
+출발지가 채워집니다.
+
+```xml
+<biz-log:logging-context>                              <!-- sourceAppName = 현재 앱 이름 -->
+<biz-log:logging-context sourceAppName="biz-com-sys-caller">   <!-- 명시하면 덮어씀 -->
+```
 
 enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하거나 제거하면 이미 배포된
 앱의 `triggerType="..."` / `status="..."` 값이 기동 시점에 깨집니다.
@@ -121,7 +131,7 @@ enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하
 Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(defaultValue = ...)` 을
 붙이면 스키마상 required 가 아니게 되어 XML 에서 생략할 수 있습니다.
 
-**6개 파라미터 모두 기본값이 있으므로 스키마 레벨 필수는 하나도 없습니다.** 속성 없이도
+**7개 파라미터 모두 기본값이 있으므로 스키마 레벨 필수는 하나도 없습니다.** 속성 없이도
 컴포넌트가 동작합니다.
 
 ```xml
@@ -143,7 +153,7 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 
 ## 컨텍스트에 실리는 항목
 
-`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 10개가 노출됩니다.
+`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 11개가 노출됩니다.
 
 | 항목 | 타입 | 출처 |
 |---|---|---|
@@ -151,6 +161,7 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 | `baseTableName` | String | 파라미터 / Configuration (기본 `MULE_BIZ_INTERFACE_LOG`) |
 | `triggerType` | `TriggerType` | 파라미터 (기본 `API`) |
 | `actor` | String | 파라미터 (기본 `SFDC`) |
+| `sourceAppName` | String | 파라미터 (기본 `#[p('app.name')]` = 현재 Mule 앱 이름) |
 | `targetAppName` | String | 파라미터 (기본 `biz-com-exp-listener`) |
 | `status` | `Status` | 파라미터 (기본 `SUCCESS`) |
 | `correlationId` | String | **기존** Mule 이벤트의 correlation id |
@@ -315,7 +326,7 @@ mvn verify -Pfunctional-tests
 기능이 추가될 때마다 **patch 자리를 하나** 올립니다.
 
 ```
-1.0.3-SNAPSHOT  →  1.0.3-SNAPSHOT  →  1.0.3-SNAPSHOT  ...
+1.0.4-SNAPSHOT  →  1.0.4-SNAPSHOT  →  1.0.4-SNAPSHOT  ...
 ```
 
 `minor` / `major` 자리는 호환성이 깨지는 변경에 남겨 둡니다. 예를 들어 enum 상수 제거,
@@ -330,7 +341,7 @@ mvn verify -Pfunctional-tests
 <dependency>
   <groupId>org.mycompany</groupId>
   <artifactId>biz-com-lib-log-connector</artifactId>
-  <version>1.0.3-SNAPSHOT</version>
+  <version>1.0.4-SNAPSHOT</version>
   <classifier>mule-plugin</classifier>
 </dependency>
 ```

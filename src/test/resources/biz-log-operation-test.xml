@@ -89,9 +89,21 @@
   </flow>
 
   <!--
-    (6) 모든 파라미터에 기본값이 있으므로 config 는 이름만, operation 은
+    (6) sourceAppName 이 p('app.name') 으로 채워지는지.
+        앱 이름은 환경마다 다르므로 값을 직접 단정하지 않고 p('app.name') 과 비교한다.
+  -->
+  <flow name="operationDerivesSourceAppNameFromProperty">
+    <biz-log:build-context config-ref="BizLog_Config" target="ctx"/>
+    <set-payload value="#[
+      if (vars.ctx.sourceAppName == p('app.name')) 'SAME' else 'DIFFERENT'
+    ]"/>
+  </flow>
+
+  <!--
+    (7) 모든 파라미터에 기본값이 있으므로 config 는 이름만, operation 은
         config-ref / target 만으로 동작해야 한다.
         v1 / MULE_BIZ_INTERFACE_LOG / API / SFDC / biz-com-exp-listener / SUCCESS
+        (sourceAppName 은 환경 의존이라 위 (6) 에서 따로 검증한다)
   -->
   <biz-log:config name="BizLog_Config_Default"/>
 
@@ -107,7 +119,7 @@
     ]"/>
   </flow>
 
-  <!-- (7) target 없이 쓰면 payload 로 나오는지 -->
+  <!-- (8) target 없이 쓰면 payload 로 나오는지 -->
   <flow name="operationWithoutTargetReturnsPayload">
     <biz-log:build-context config-ref="BizLog_Config"
                            triggerType="API"

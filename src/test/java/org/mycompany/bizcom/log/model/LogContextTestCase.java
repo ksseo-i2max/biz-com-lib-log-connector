@@ -42,6 +42,7 @@ public class LogContextTestCase {
         .baseTableName("MULE_BIZ_INTERFACE_LOG")
         .triggerType(API)
         .actor("SFDC")
+        .sourceAppName("biz-com-exp-listener")
         .targetAppName("biz-com-exp-listener")
         .status(SUCCESS)
         .correlationId("corr-0001")
@@ -62,6 +63,7 @@ public class LogContextTestCase {
     assertThat(ctx.getBaseTableName(), is("MULE_BIZ_INTERFACE_LOG"));
     assertThat(ctx.getTriggerType(), is(API));
     assertThat(ctx.getActor(), is("SFDC"));
+    assertThat(ctx.getSourceAppName(), is("biz-com-exp-listener"));
     assertThat(ctx.getTargetAppName(), is("biz-com-exp-listener"));
     assertThat(ctx.getStatus(), is(SUCCESS));
     assertThat(ctx.getCorrelationId(), is("corr-0001"));
@@ -108,6 +110,7 @@ public class LogContextTestCase {
         .baseTableName("TB_HIST")
         .triggerType(BATCH)
         .actor("scheduler")
+        .sourceAppName("biz-com-exp-listener")
         .targetAppName("SAP")
         .status(FAIL)
         .correlationId("corr-0002")
@@ -117,8 +120,8 @@ public class LogContextTestCase {
         .toMap();
 
     assertThat(map.keySet(), contains("flowVersion", "baseTableName", "triggerType", "actor",
-        "targetAppName", "status", "correlationId", "startTime", "originPayload",
-        "originAttributes"));
+        "sourceAppName", "targetAppName", "status", "correlationId", "startTime",
+        "originPayload", "originAttributes"));
     assertThat(map.get("flowVersion"), is("v2"));
     assertThat(map.get("triggerType"), is("BATCH"));
     assertThat(map.get("status"), is("FAIL"));
@@ -164,15 +167,18 @@ public class LogContextTestCase {
   }
 
   /**
-   * {@code correlationId} 는 검증 대상이 아니다. 런타임이 항상 값을 주지만, 이벤트 없이
-   * 컨텍스트를 만드는 경우까지 실패로 막을 이유는 없다.
+   * {@code correlationId} 와 {@code sourceAppName} 은 검증 대상이 아니다. 둘 다 커넥터가
+   * 자동 파생하는 값이고, {@code sourceAppName} 의 DSL 기본값 {@code #[p('app.name')]} 은
+   * 프로퍼티가 없는 환경에서 null 이 될 수 있다. 자동 파생 값 때문에 로깅이 실패하면 안 된다.
    */
   @Test
-  public void allowsAbsentCorrelationId() {
-    LogContext ctx = valid().correlationId(null).build();
+  public void allowsAbsentAutoDerivedValues() {
+    LogContext ctx = valid().correlationId(null).sourceAppName(null).build();
 
     assertThat(ctx.getCorrelationId(), is((Object) null));
+    assertThat(ctx.getSourceAppName(), is((Object) null));
     assertThat(ctx.toMap().get("correlationId"), is((Object) null));
+    assertThat(ctx.toMap().get("sourceAppName"), is((Object) null));
   }
 
   /**
@@ -188,6 +194,7 @@ public class LogContextTestCase {
     LogContext differentVersion = valid().flowVersion("v2").build();
     LogContext differentStartTime = valid().startTime(FIXED.plusNanos(1)).build();
     LogContext differentCorrelationId = valid().correlationId("corr-9999").build();
+    LogContext differentSourceApp = valid().sourceAppName("other-app").build();
     LogContext differentPayload = valid().originPayload(new Object()).build();
 
     assertThat(a, is(b));
@@ -196,6 +203,7 @@ public class LogContextTestCase {
     assertThat(a, is(not(differentVersion)));
     assertThat(a, is(not(differentStartTime)));
     assertThat(a, is(not(differentCorrelationId)));
+    assertThat(a, is(not(differentSourceApp)));
     assertThat("원본 메시지는 비교 대상이 아니다", a, is(differentPayload));
   }
 

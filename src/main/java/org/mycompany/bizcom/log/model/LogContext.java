@@ -16,7 +16,8 @@ import org.mycompany.bizcom.log.param.Status;
 import org.mycompany.bizcom.log.param.TriggerType;
 
 /**
- * 로그 대상 정보 2개, 컨텍스트 파라미터 4개, 시각 1개, 원본 메시지 2개를 합친 로그 컨텍스트.
+ * 로그 대상 정보 2개, 컨텍스트 파라미터 5개, 시각 1개, correlationId, 원본 메시지 2개를
+ * 합친 로그 컨텍스트.
  *
  * <p>Scope 에서는 메시지의 <b>attributes</b> 로, Operation 에서는 {@code target} 을 통해
  * <b>flow variable</b> 로 실려 나간다. 두 경로 모두 동일한 타입이므로 DataWeave 접근
@@ -29,6 +30,10 @@ import org.mycompany.bizcom.log.param.TriggerType;
  *
  * <p><b>{@code startTime}</b> 은 컨텍스트 생성 시각이다. 빌더에서 지정하지 않으면
  * {@link LocalDateTime#now()} 로 채워진다.
+ *
+ * <p><b>{@code sourceAppName}</b> 은 DSL 기본값이 {@code #[p('app.name')]} 이므로 별도로
+ * 지정하지 않으면 현재 Mule 앱 이름이 담긴다. 자동 파생 값이라 빌더에서 검증하지 않는다
+ * ({@code correlationId} 와 같은 취급).
  *
  * <p><b>{@code correlationId}</b> 는 새로 만들지 않고 <b>현재 Mule 이벤트의 correlation
  * id 를 그대로</b> 담는다. 커넥터가 {@code CorrelationInfo} 를 주입받아 채우므로, 같은
@@ -53,6 +58,7 @@ public class LogContext implements Serializable {
   private final String baseTableName;
   private final TriggerType triggerType;
   private final String actor;
+  private final String sourceAppName;
   private final String targetAppName;
   private final Status status;
   private final String correlationId;
@@ -65,6 +71,7 @@ public class LogContext implements Serializable {
     this.baseTableName = builder.baseTableName;
     this.triggerType = builder.triggerType;
     this.actor = builder.actor;
+    this.sourceAppName = builder.sourceAppName;
     this.targetAppName = builder.targetAppName;
     this.status = builder.status;
     this.correlationId = builder.correlationId;
@@ -119,6 +126,14 @@ public class LogContext implements Serializable {
     return actor;
   }
 
+  /**
+   * 호출 출발 애플리케이션 명. 기본값이 {@code #[p('app.name')]} 이므로 별도로 지정하지
+   * 않으면 현재 Mule 앱 이름이 담긴다.
+   */
+  public String getSourceAppName() {
+    return sourceAppName;
+  }
+
   public String getTargetAppName() {
     return targetAppName;
   }
@@ -164,6 +179,7 @@ public class LogContext implements Serializable {
     // build() 가 null 을 거부하므로 여기서 null 검사는 불필요하다.
     map.put("triggerType", triggerType.name());
     map.put("actor", actor);
+    map.put("sourceAppName", sourceAppName);
     map.put("targetAppName", targetAppName);
     map.put("status", status.name());
     map.put("correlationId", correlationId);
@@ -191,6 +207,7 @@ public class LogContext implements Serializable {
         && Objects.equals(baseTableName, that.baseTableName)
         && triggerType == that.triggerType
         && Objects.equals(actor, that.actor)
+        && Objects.equals(sourceAppName, that.sourceAppName)
         && Objects.equals(targetAppName, that.targetAppName)
         && status == that.status
         && Objects.equals(correlationId, that.correlationId)
@@ -199,8 +216,8 @@ public class LogContext implements Serializable {
 
   @Override
   public int hashCode() {
-    return Objects.hash(flowVersion, baseTableName, triggerType, actor, targetAppName, status,
-        correlationId, startTime);
+    return Objects.hash(flowVersion, baseTableName, triggerType, actor, sourceAppName,
+        targetAppName, status, correlationId, startTime);
   }
 
   /**
@@ -215,6 +232,7 @@ public class LogContext implements Serializable {
         + ", baseTableName='" + baseTableName + '\''
         + ", triggerType=" + triggerType
         + ", actor='" + actor + '\''
+        + ", sourceAppName='" + sourceAppName + '\''
         + ", targetAppName='" + targetAppName + '\''
         + ", status=" + status
         + ", correlationId='" + correlationId + '\''
@@ -237,6 +255,7 @@ public class LogContext implements Serializable {
     private String baseTableName;
     private TriggerType triggerType;
     private String actor;
+    private String sourceAppName;
     private String targetAppName;
     private Status status;
     private String correlationId;
@@ -264,6 +283,15 @@ public class LogContext implements Serializable {
 
     public Builder actor(String actor) {
       this.actor = actor;
+      return this;
+    }
+
+    /**
+     * 호출 출발 애플리케이션 명. DSL 기본값이 {@code #[p('app.name')]} 이라 자동 파생
+     * 값이므로 {@link #build()} 에서 검증하지 않는다.
+     */
+    public Builder sourceAppName(String sourceAppName) {
+      this.sourceAppName = sourceAppName;
       return this;
     }
 
@@ -299,10 +327,11 @@ public class LogContext implements Serializable {
       return this;
     }
 
-    /** {@link LogContextParameters} 의 4개 값을 한 번에 채운다. */
+    /** {@link LogContextParameters} 의 값을 한 번에 채운다. */
     public Builder from(LogContextParameters params) {
       return triggerType(params.getTriggerType())
           .actor(params.getActor())
+          .sourceAppName(params.getSourceAppName())
           .targetAppName(params.getTargetAppName())
           .status(params.getStatus());
     }
