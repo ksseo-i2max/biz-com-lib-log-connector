@@ -13,6 +13,7 @@ import org.mule.sdk.api.annotation.param.display.Summary;
 import org.mule.sdk.api.runtime.operation.Result;
 import org.mule.sdk.api.runtime.process.CompletionCallback;
 import org.mule.sdk.api.runtime.route.Chain;
+import org.mule.sdk.api.runtime.streaming.StreamingHelper;
 import org.mycompany.bizcom.log.error.LogErrorProvider;
 import org.mycompany.bizcom.log.model.LogContext;
 import org.mycompany.bizcom.log.param.LogContextParameters;
@@ -34,6 +35,9 @@ public class BizComLogOperations {
 
   private static final String TARGET_GROUP = "Log Target";
   private static final String CONTEXT_GROUP = "Context";
+
+  /** {@code #[attributes]} — {@code Optional.PAYLOAD} 에 대응하는 attributes 쪽 기본값. */
+  private static final String CURRENT_ATTRIBUTES = "#[attributes]";
 
   /**
    * <b>Scope</b> — 감싼 하위 컴포넌트 체인을 실행하면서 로그 컨텍스트를 메시지
@@ -59,16 +63,19 @@ public class BizComLogOperations {
    * <p>2. {@code payload} 파라미터. {@link Chain} 에 attributes 를 실어 보내려면 payload 도
    * 함께 넘겨야 하는데, 여기에 임의 값을 넣으면 사용자의 원본 payload 가 조용히 사라진다.
    * {@code #[payload]} 를 기본값으로 받아 원본 payload 와 media type 을 그대로 되돌려주어
-   * pass-through 를 보장한다. 기본값이 있으므로 사용자가 DSL 에 명시할 필요는 없다.
+   * pass-through 를 보장한다. 같은 값이 {@code attributes.originPayload} 로도 실린다.
+   * 기본값이 있으므로 사용자가 DSL 에 명시할 필요는 없다.
    *
    * <p>3. 에러 전파. 체인 내부 예외는 감싸지 않고 {@code callback.error(throwable)} 로
    * 그대로 넘긴다. 그래야 원본 에러 타입이 유지되어 사용자의 {@code <error-handler>} 가
    * {@code HTTP:CONNECTIVITY} 등을 정상적으로 잡을 수 있다.
    *
+   * <p>스코프의 attributes 는 {@link LogContext} 로 <b>교체</b>되므로, 원래 attributes 는
+   * {@code attributes.originAttributes} 에서 꺼내 쓴다.
+   *
    * <p><b>주의:</b> 스코프 안에서 메시지를 교체하는 컴포넌트(HTTP Request, DB Select,
    * Transform 등)를 지나면 attributes 는 소실된다. 그런 경우
-   * {@link #buildContext(BizComLogConfiguration, LogContextParameters)} 를
-   * {@code target} 과 함께 쓰거나, 스코프 첫 줄에
+   * {@code build-context} 를 {@code target} 과 함께 쓰거나, 스코프 첫 줄에
    * {@code <set-variable variableName="ctx" value="#[attributes]"/>} 를 넣는다.
    */
   @DisplayName("With Context")
@@ -78,16 +85,29 @@ public class BizComLogOperations {
   public void withContext(@ParameterGroup(name = TARGET_GROUP) LogTargetParameters target,
                           @ParameterGroup(name = CONTEXT_GROUP) LogContextParameters params,
                           @Optional(defaultValue = Optional.PAYLOAD)
-                          @Summary("체인으로 그대로 전달할 payload. 기본값은 현재 payload 다.")
+                          @Summary("체인으로 전달하고 originPayload 로도 기록할 payload."
+                              + " 기본값은 현재 payload 다.")
                           TypedValue<Object> payload,
+                          @Optional(defaultValue = CURRENT_ATTRIBUTES)
+                          @Summary("originAttributes 로 기록할 attributes."
+                              + " 기본값은 현재 attributes 다.")
+                          TypedValue<Object> originAttributes,
+                          StreamingHelper streamingHelper,
                           Chain operations,
                           CompletionCallback<Object, Object> callback) {
 
-    LogContext context = LogContext.of(target, params);
+    // 스트림 payload 를 체인 실행 후에도 다시 읽을 수 있도록 repeatable provider 로 바꾼다.
+    // 원본 커서를 그대로 들고 있으면 체인이 소비한 뒤 읽을 수 없다.
+    Object originPayload = streamingHelper.resolveCursorProvider(valueOf(payload));
 
+    LogContext context =
+        LogContext.of(target, params, originPayload, valueOf(originAttributes));
+
+    // 체인에 넘기는 payload 도 위에서 resolve 한 값을 그대로 써서, 체인과 originPayload 가
+    // 같은 repeatable provider 를 가리키게 한다.
     Result<Object, Object> input = Result.<Object, Object>builder()
-        .output(payload.getValue())
-        .mediaType(payload.getDataType().getMediaType())
+        .output(originPayload)
+        .mediaType(mediaTypeOf(payload))
         .attributes(context)
         .build();
 
@@ -123,8 +143,19 @@ public class BizComLogOperations {
   @Summary("로그 컨텍스트 객체를 생성한다. target 과 함께 쓰면 flow variable 로 저장된다")
   @Throws(LogErrorProvider.class)
   public LogContext buildContext(@Config BizComLogConfiguration config,
-                                 @ParameterGroup(name = CONTEXT_GROUP) LogContextParameters params) {
-    return LogContext.of(config, params);
+                                 @ParameterGroup(name = CONTEXT_GROUP) LogContextParameters params,
+                                 @Optional(defaultValue = Optional.PAYLOAD)
+                                 @Summary("originPayload 로 기록할 payload."
+                                     + " 기본값은 현재 payload 다.")
+                                 TypedValue<Object> payload,
+                                 @Optional(defaultValue = CURRENT_ATTRIBUTES)
+                                 @Summary("originAttributes 로 기록할 attributes."
+                                     + " 기본값은 현재 attributes 다.")
+                                 TypedValue<Object> originAttributes,
+                                 StreamingHelper streamingHelper) {
+    return LogContext.of(config, params,
+        streamingHelper.resolveCursorProvider(valueOf(payload)),
+        valueOf(originAttributes));
   }
 
   /**
@@ -135,5 +166,21 @@ public class BizComLogOperations {
   @SuppressWarnings("unchecked")
   private static Result<Object, Object> asObjectResult(Result<?, ?> result) {
     return (Result<Object, Object>) result;
+  }
+
+  /**
+   * {@code #[attributes]} 는 attributes 가 없는 이벤트에서 null 을 담은 {@link TypedValue}
+   * 로 올 수도 있고, 파라미터 자체가 null 로 올 수도 있다. 양쪽을 함께 흡수한다.
+   */
+  private static Object valueOf(TypedValue<Object> typedValue) {
+    return typedValue == null ? null : typedValue.getValue();
+  }
+
+  /** 원본 payload 의 media type 을 보존한다. 알 수 없으면 {@code null} (런타임이 추론). */
+  private static org.mule.runtime.api.metadata.MediaType mediaTypeOf(TypedValue<Object> payload) {
+    if (payload == null || payload.getDataType() == null) {
+      return null;
+    }
+    return payload.getDataType().getMediaType();
   }
 }

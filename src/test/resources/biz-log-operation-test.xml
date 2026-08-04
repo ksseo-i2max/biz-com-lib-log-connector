@@ -49,7 +49,36 @@
     <set-payload value="#[vars.ctx.actor ++ '|' ++ vars.ctx.status]"/>
   </flow>
 
-  <!-- (3) config 에서 flowVersion 을 생략하면 기본값 "v1" 이 적용되는지 -->
+  <!--
+    (3) 진입 전 payload / attributes 가 originPayload / originAttributes 로 실리는지.
+        Operation 은 vars 에 저장되므로 이후 메시지 교체와 무관하게 원본이 남는다.
+  -->
+  <flow name="operationExposesOriginMessage">
+    <biz-log:build-context config-ref="BizLog_Config"
+                           triggerType="API"
+                           actor="batch-user"
+                           targetAppName="SFDC"
+                           status="SUCCESS"
+                           target="ctx"/>
+    <set-payload value="#[{ replaced: true }]"/>
+    <set-payload value="#[vars.ctx.originPayload]"/>
+  </flow>
+
+  <!-- (4) eventTime / startTime 이 채워지고 서로 같은지 -->
+  <flow name="operationStampsBothTimesIdentically">
+    <biz-log:build-context config-ref="BizLog_Config"
+                           triggerType="BATCH"
+                           actor="scheduler"
+                           targetAppName="SAP"
+                           status="SUCCESS"
+                           target="ctx"/>
+    <set-payload value="#[
+      (if (vars.ctx.eventTime != null) 'T' else 'F') ++
+      (if (vars.ctx.startTime == vars.ctx.eventTime) 'T' else 'F')
+    ]"/>
+  </flow>
+
+  <!-- (5) config 에서 flowVersion 을 생략하면 기본값 "v1" 이 적용되는지 -->
   <biz-log:config name="BizLog_Config_Default"
                   baseTableName="TB_IF_LOG"/>
 
@@ -63,7 +92,7 @@
     <set-payload value="#[vars.ctx.flowVersion]"/>
   </flow>
 
-  <!-- (4) target 없이 쓰면 payload 로 나오는지 -->
+  <!-- (6) target 없이 쓰면 payload 로 나오는지 -->
   <flow name="operationWithoutTargetReturnsPayload">
     <biz-log:build-context config-ref="BizLog_Config"
                            triggerType="API"

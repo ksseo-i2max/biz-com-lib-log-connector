@@ -35,6 +35,27 @@ public class BuildContextOperationFunctionalTestCase extends MuleArtifactFunctio
     assertThat(event.getMessage().getPayload().getValue(), is("integration-user|SUCCESS"));
   }
 
+  /** 컴포넌트 진입 전 payload 가 {@code vars.ctx.originPayload} 로 실려야 한다. */
+  @Test
+  public void exposesOriginPayload() throws Exception {
+    CoreEvent event = flowRunner("operationExposesOriginMessage")
+        .withPayload("INCOMING-BODY")
+        .run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("INCOMING-BODY"));
+  }
+
+  /**
+   * {@code eventTime} 이 채워지고 {@code startTime} 과 정확히 같아야 한다.
+   * 커넥터가 {@code now()} 를 한 번만 호출하므로 두 값이 어긋나면 회귀다.
+   */
+  @Test
+  public void stampsBothTimesIdentically() throws Exception {
+    CoreEvent event = flowRunner("operationStampsBothTimesIdentically").run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("TT"));
+  }
+
   /** Configuration 에서 {@code flowVersion} 생략 시 기본값 {@code "v1"} 이 적용되어야 한다. */
   @Test
   public void appliesFlowVersionDefault() throws Exception {

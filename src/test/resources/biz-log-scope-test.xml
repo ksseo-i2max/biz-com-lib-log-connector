@@ -66,7 +66,51 @@
     </error-handler>
   </flow>
 
-  <!-- (4) flowVersion 을 생략하면 기본값 "v1" 이 적용되는지 -->
+  <!-- (4) 진입 전 payload / attributes 가 originPayload / originAttributes 로 실리는지 -->
+  <flow name="scopeExposesOriginMessage">
+    <biz-log:with-context baseTableName="TB_IF_LOG"
+                          triggerType="API"
+                          actor="batch-user"
+                          targetAppName="SFDC"
+                          status="SUCCESS">
+      <set-payload value="#[attributes.originPayload]"/>
+    </biz-log:with-context>
+  </flow>
+
+  <!--
+    (5) 체인이 payload 를 교체한 뒤에도 originPayload 로 원본을 되찾을 수 있는지.
+        스코프 attributes 는 교체되므로 먼저 vars 로 옮겨 둔다.
+  -->
+  <flow name="scopeOriginPayloadSurvivesReplacement">
+    <biz-log:with-context baseTableName="TB_IF_LOG"
+                          triggerType="API"
+                          actor="batch-user"
+                          targetAppName="SFDC"
+                          status="SUCCESS">
+      <set-variable variableName="ctx" value="#[attributes]"/>
+      <set-payload value="#[{ replaced: true }]"/>
+      <set-payload value="#[vars.ctx.originPayload]"/>
+    </biz-log:with-context>
+  </flow>
+
+  <!--
+    (6) eventTime / startTime 이 채워지고 서로 같은지.
+        now() 를 두 번 호출하면 미세하게 어긋나므로 동일성까지 확인한다.
+  -->
+  <flow name="scopeStampsBothTimesIdentically">
+    <biz-log:with-context baseTableName="TB_IF_LOG"
+                          triggerType="BATCH"
+                          actor="batch-user"
+                          targetAppName="SFDC"
+                          status="SUCCESS">
+      <set-payload value="#[
+        (if (attributes.eventTime != null) 'T' else 'F') ++
+        (if (attributes.startTime == attributes.eventTime) 'T' else 'F')
+      ]"/>
+    </biz-log:with-context>
+  </flow>
+
+  <!-- (7) flowVersion 을 생략하면 기본값 "v1" 이 적용되는지 -->
   <flow name="scopeAppliesFlowVersionDefault">
     <biz-log:with-context baseTableName="TB_IF_LOG"
                           triggerType="BATCH"
@@ -77,7 +121,7 @@
     </biz-log:with-context>
   </flow>
 
-  <!-- (5) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
+  <!-- (8) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
   <flow name="scopeRejectsBlankParameter">
     <biz-log:with-context flowVersion=" "
                           baseTableName="TB_IF_LOG"

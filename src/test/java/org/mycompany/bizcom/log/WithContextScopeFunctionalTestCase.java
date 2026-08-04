@@ -53,6 +53,37 @@ public class WithContextScopeFunctionalTestCase extends MuleArtifactFunctionalTe
     assertThat(errorType, is("MULE:EXPRESSION"));
   }
 
+  /** 스코프 진입 전 payload 가 {@code attributes.originPayload} 로 실려야 한다. */
+  @Test
+  public void exposesOriginPayload() throws Exception {
+    CoreEvent event = flowRunner("scopeExposesOriginMessage")
+        .withPayload("INCOMING-BODY")
+        .run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("INCOMING-BODY"));
+  }
+
+  /** 체인이 payload 를 교체한 뒤에도 {@code originPayload} 로 원본을 되찾을 수 있어야 한다. */
+  @Test
+  public void originPayloadSurvivesReplacementInsideChain() throws Exception {
+    CoreEvent event = flowRunner("scopeOriginPayloadSurvivesReplacement")
+        .withPayload("INCOMING-BODY")
+        .run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("INCOMING-BODY"));
+  }
+
+  /**
+   * {@code eventTime} 이 채워지고 {@code startTime} 과 정확히 같아야 한다.
+   * 커넥터가 {@code now()} 를 한 번만 호출하므로 두 값이 어긋나면 회귀다.
+   */
+  @Test
+  public void stampsBothTimesIdentically() throws Exception {
+    CoreEvent event = flowRunner("scopeStampsBothTimesIdentically").run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("TT"));
+  }
+
   /** {@code flowVersion} 생략 시 스키마 기본값 {@code "v1"} 이 적용되어야 한다. */
   @Test
   public void appliesFlowVersionDefault() throws Exception {

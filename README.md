@@ -117,6 +117,69 @@ Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값�
 enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하거나 제거하면 이미 배포된
 앱의 `triggerType="..."` / `status="..."` 값이 기동 시점에 깨집니다.
 
+## 컨텍스트에 실리는 항목
+
+`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 10개가 노출됩니다.
+
+| 항목 | 타입 | 출처 |
+|---|---|---|
+| `flowVersion` | String | 파라미터 / Configuration (기본 `v1`) |
+| `baseTableName` | String | 파라미터 / Configuration |
+| `triggerType` | `TriggerType` | 파라미터 |
+| `actor` | String | 파라미터 |
+| `targetAppName` | String | 파라미터 |
+| `status` | `Status` | 파라미터 |
+| `eventTime` | `LocalDateTime` | 커넥터가 자동 기록 |
+| `startTime` | `LocalDateTime` | 커넥터가 자동 기록 |
+| `originPayload` | Object | 컴포넌트 진입 **전** payload |
+| `originAttributes` | Object | 컴포넌트 진입 **전** attributes |
+
+```xml
+<logger message="#[attributes.eventTime]"/>
+<logger message="#[attributes.originPayload]"/>
+<logger message="#[attributes.originAttributes.headers]"/>   <!-- 예: HTTP 요청 헤더 -->
+```
+
+### eventTime 과 startTime
+
+둘 다 컨텍스트 생성 시각으로 채워지며 **같은 값**입니다. `LocalDateTime.now()` 를 한 번만
+호출해 양쪽에 넣기 때문에 미세하게 어긋나지 않습니다. Scope 의 경우 **하위 체인 실행 전**,
+즉 스코프 진입 시각입니다.
+
+두 값이 항상 같으므로 현재로서는 이름만 다른 중복입니다. 원래 의도가 "처리 소요시간 측정"
+이라면 종료 시각을 잡는 지점이 따로 있어야 하므로, 스코프가 체인 실행을 마친 뒤 `endTime`
+을 채우는 방식이 필요합니다. 필요하시면 추가하겠습니다.
+
+### originPayload / originAttributes
+
+Scope 는 attributes 를 로그 컨텍스트로 **교체**하므로, 원래 attributes 는
+`attributes.originAttributes` 에서 꺼내 씁니다. 체인 안에서 메시지가 어떻게 바뀌든
+진입 시점 값을 계속 참조할 수 있습니다.
+
+```xml
+<biz-log:with-context baseTableName="TB_IF_LOG" triggerType="API"
+    actor="batch-user" targetAppName="SFDC" status="SUCCESS">
+
+  <set-variable variableName="ctx" value="#[attributes]"/>
+  <http:request .../>                              <!-- 메시지 교체 -->
+  <logger message="#[vars.ctx.originPayload]"/>    <!-- 원본 요청 본문 -->
+</biz-log:with-context>
+```
+
+스트리밍 payload 는 커넥터가 `StreamingHelper.resolveCursorProvider(...)` 로 반복 조회
+가능한 형태로 바꿔 담습니다. 원본 커서를 그대로 들고 있으면 체인이 소비한 뒤 다시 읽을
+수 없기 때문입니다.
+
+> **직렬화 주의.** `LogContext` 는 `Serializable` 이고 나머지 필드는 모두 직렬화 가능하지만,
+> `originPayload` / `originAttributes` 는 사용자의 임의 객체입니다. 이 컨텍스트를
+> VM connector / persistent object store / 클러스터로 넘길 계획이면 해당 값이 직렬화
+> 가능한지 확인하세요. `CursorProvider` 는 직렬화 대상이 아닙니다.
+
+> **로그 노출 주의.** `LogContext.toString()` 은 원본 payload 의 **값을 찍지 않고 타입만**
+> 남깁니다 (`originPayload=<String>`). 요청 본문 전체가 로그에 쏟아지면 용량 문제와
+> 민감정보 노출로 이어지기 때문입니다. DB 에 기록할 때는 `toMap()` 이 원본 객체를 그대로
+> 주므로 마스킹 여부를 호출측에서 결정하세요.
+
 ## 어느 쪽을 쓸지
 
 | | 로그 대상 정보 출처 | 접근 | 메시지 교체 후 생존 |
