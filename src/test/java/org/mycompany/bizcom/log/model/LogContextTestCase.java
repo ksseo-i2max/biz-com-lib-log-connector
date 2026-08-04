@@ -121,6 +121,7 @@ public class LogContextTestCase {
 
     assertThat(map.keySet(), contains("flowVersion", "baseTableName", "triggerType", "actor",
         "sourceAppName", "targetAppName", "status", "correlationId", "startTime",
+        "includeRequestPayload", "includeResponsePayload", "requestPayload",
         "originPayload", "originAttributes"));
     assertThat(map.get("flowVersion"), is("v2"));
     assertThat(map.get("triggerType"), is("BATCH"));
@@ -155,6 +156,57 @@ public class LogContextTestCase {
   public void rejectsNullEnumsWithInvalidContext() {
     assertRejected(valid().triggerType(null));
     assertRejected(valid().status(null));
+  }
+
+  /**
+   * {@code includeRequestPayload} 가 켜지면 {@code originPayload} 와 <b>같은 인스턴스</b>가
+   * {@code requestPayload} 에도 담긴다. 값이 빌드 시점에 파생되므로 둘이 어긋날 수 없다.
+   */
+  @Test
+  public void copiesOriginPayloadIntoRequestPayloadWhenIncluded() {
+    Object payload = "REQUEST-BODY";
+
+    LogContext ctx = valid()
+        .originPayload(payload)
+        .includeRequestPayload(true)
+        .build();
+
+    assertThat(ctx.isIncludeRequestPayload(), is(true));
+    assertThat(ctx.getRequestPayload(), is(sameInstance(payload)));
+    assertThat(ctx.getOriginPayload(), is(sameInstance(payload)));
+    assertThat(ctx.toMap().get("requestPayload"), is(sameInstance(payload)));
+  }
+
+  /** 플래그가 꺼져 있으면 originPayload 가 있어도 requestPayload 는 null 이다. */
+  @Test
+  public void leavesRequestPayloadNullWhenNotIncluded() {
+    LogContext ctx = valid()
+        .originPayload("REQUEST-BODY")
+        .includeRequestPayload(false)
+        .build();
+
+    assertThat(ctx.isIncludeRequestPayload(), is(false));
+    assertThat(ctx.getRequestPayload(), is((Object) null));
+    assertThat("originPayload 는 플래그와 무관하게 담긴다",
+        ctx.getOriginPayload(), is((Object) "REQUEST-BODY"));
+  }
+
+  /** 두 플래그 모두 기본이 꺼짐이다. 본문 기록은 명시적으로 켜야 한다. */
+  @Test
+  public void payloadFlagsDefaultToFalse() {
+    LogContext ctx = LogContext.builder()
+        .flowVersion("v1")
+        .baseTableName("MULE_BIZ_INTERFACE_LOG")
+        .triggerType(API)
+        .actor("SFDC")
+        .targetAppName("biz-com-exp-listener")
+        .status(SUCCESS)
+        .originPayload("REQUEST-BODY")
+        .build();
+
+    assertThat(ctx.isIncludeRequestPayload(), is(false));
+    assertThat(ctx.isIncludeResponsePayload(), is(false));
+    assertThat(ctx.getRequestPayload(), is((Object) null));
   }
 
   /** 원본 메시지는 지정하지 않으면 null 이며, 그 자체로 오류는 아니다. */
@@ -195,6 +247,7 @@ public class LogContextTestCase {
     LogContext differentStartTime = valid().startTime(FIXED.plusNanos(1)).build();
     LogContext differentCorrelationId = valid().correlationId("corr-9999").build();
     LogContext differentSourceApp = valid().sourceAppName("other-app").build();
+    LogContext differentFlag = valid().includeRequestPayload(true).build();
     LogContext differentPayload = valid().originPayload(new Object()).build();
 
     assertThat(a, is(b));
@@ -204,6 +257,7 @@ public class LogContextTestCase {
     assertThat(a, is(not(differentStartTime)));
     assertThat(a, is(not(differentCorrelationId)));
     assertThat(a, is(not(differentSourceApp)));
+    assertThat(a, is(not(differentFlag)));
     assertThat("원본 메시지는 비교 대상이 아니다", a, is(differentPayload));
   }
 

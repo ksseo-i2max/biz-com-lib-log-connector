@@ -103,6 +103,29 @@ public class LoggingContextScopeFunctionalTestCase extends MuleArtifactFunctiona
     assertThat(event.getMessage().getPayload().getValue(), is("SAME"));
   }
 
+  /** {@code includeRequestPayload="true"} 면 진입 직전 payload 가 실려야 한다. */
+  @Test
+  public void includesRequestPayloadWhenEnabled() throws Exception {
+    CoreEvent event = flowRunner("scopeIncludesRequestPayloadWhenEnabled")
+        .withPayload("INCOMING-BODY")
+        .run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("INCOMING-BODY"));
+  }
+
+  /**
+   * 기본값이 {@code false} 이므로 {@code requestPayload} 는 비어야 한다.
+   * {@code originPayload} 는 플래그와 무관하게 항상 담긴다.
+   */
+  @Test
+  public void omitsRequestPayloadByDefault() throws Exception {
+    CoreEvent event = flowRunner("scopeOmitsRequestPayloadByDefault")
+        .withPayload("INCOMING-BODY")
+        .run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("NULL|INCOMING-BODY"));
+  }
+
   /** 명시한 {@code sourceAppName} 은 기본값을 덮어써야 한다. */
   @Test
   public void acceptsExplicitSourceAppName() throws Exception {

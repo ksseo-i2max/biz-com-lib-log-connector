@@ -70,6 +70,33 @@ public class LogContextParameters {
   @Summary("처리 결과 SUCCESS / FAIL (기본값 SUCCESS)")
   private Status status;
 
+  /**
+   * {@code true} 면 컴포넌트 진입 직전 payload 가 {@code attributes.requestPayload} 로
+   * 실린다. {@code false} 면 그 항목이 {@code null} 이다.
+   *
+   * <p>기본값을 {@code false} 로 둔 이유: 요청 본문을 로그 컨텍스트에 담는 것은 용량과
+   * 민감정보 노출 비용이 있는 선택이므로, 명시적으로 켜야 담기게 했다.
+   */
+  @Parameter
+  @Optional(defaultValue = "false")
+  @DisplayName("Include Request Payload")
+  @Summary("진입 직전 payload 를 requestPayload 로 기록할지 여부 (기본값 false)")
+  private boolean includeRequestPayload;
+
+  /**
+   * 응답 payload 기록 여부.
+   *
+   * <p><b>현재는 플래그만 컨텍스트로 전달되고 {@code responsePayload} 항목은 채워지지
+   * 않는다.</b> 응답 payload 는 스코프의 하위 체인이 끝나야 정해지는 값이라, 스코프가
+   * 반환하는 attributes 를 교체하는 방식이 필요하다 — {@code endTime} 과 같은 제약이고
+   * 그 방식은 아직 채택하지 않았다.
+   */
+  @Parameter
+  @Optional(defaultValue = "false")
+  @DisplayName("Include Response Payload")
+  @Summary("응답 payload 기록 여부 (기본값 false). 현재는 플래그만 전달된다")
+  private boolean includeResponsePayload;
+
   public TriggerType getTriggerType() {
     return triggerType;
   }
@@ -88,5 +115,13 @@ public class LogContextParameters {
 
   public Status getStatus() {
     return status;
+  }
+
+  public boolean isIncludeRequestPayload() {
+    return includeRequestPayload;
+  }
+
+  public boolean isIncludeResponsePayload() {
+    return includeResponsePayload;
   }
 }

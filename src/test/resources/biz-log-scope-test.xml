@@ -133,7 +133,27 @@
     </biz-log:logging-context>
   </flow>
 
-  <!-- (9) sourceAppName 을 명시하면 기본값을 덮어써야 한다 -->
+  <!--
+    (9) includeRequestPayload 게이팅.
+        켜면 진입 직전 payload 가 requestPayload 로, 끄면 null 이 되어야 한다.
+        originPayload 는 플래그와 무관하게 항상 담긴다.
+  -->
+  <flow name="scopeIncludesRequestPayloadWhenEnabled">
+    <biz-log:logging-context includeRequestPayload="true">
+      <set-payload value="#[attributes.requestPayload]"/>
+    </biz-log:logging-context>
+  </flow>
+
+  <flow name="scopeOmitsRequestPayloadByDefault">
+    <biz-log:logging-context>
+      <set-payload value="#[
+        (if (attributes.requestPayload == null) 'NULL' else 'SET') ++ '|' ++
+        attributes.originPayload
+      ]"/>
+    </biz-log:logging-context>
+  </flow>
+
+  <!-- (10) sourceAppName 을 명시하면 기본값을 덮어써야 한다 -->
   <flow name="scopeAcceptsExplicitSourceAppName">
     <biz-log:logging-context sourceAppName="biz-com-sys-caller">
       <set-payload value="#[attributes.sourceAppName]"/>
@@ -141,7 +161,7 @@
   </flow>
 
   <!--
-    (10) 모든 파라미터에 기본값이 있으므로 속성 없이도 동작해야 한다.
+    (11) 모든 파라미터에 기본값이 있으므로 속성 없이도 동작해야 한다.
          v1 / MULE_BIZ_INTERFACE_LOG / API / SFDC / biz-com-exp-listener / SUCCESS
          (sourceAppName 은 환경 의존이라 위 (8) 에서 따로 검증한다)
   -->
@@ -158,7 +178,7 @@
     </biz-log:logging-context>
   </flow>
 
-  <!-- (11) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
+  <!-- (12) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
   <flow name="scopeRejectsBlankParameter">
     <biz-log:logging-context flowVersion=" "
                           baseTableName="MULE_BIZ_INTERFACE_LOG"

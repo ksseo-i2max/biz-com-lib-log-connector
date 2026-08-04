@@ -24,7 +24,7 @@
     기능이 추가될 때마다 patch 자리를 하나 올린다 (1.0.1 -> 1.0.2 -> ...).
     minor / major 는 호환성이 깨지는 변경에 남겨 둔다.
   -->
-  <version>1.0.4-SNAPSHOT</version>
+  <version>1.0.5-SNAPSHOT</version>
   <packaging>mule-extension</packaging>
 
   <name>Biz Com Log Connector</name>

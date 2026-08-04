@@ -43,6 +43,14 @@ import org.mycompany.bizcom.log.param.TriggerType;
  * 의 payload / attributes 다. Scope 의 경우 하위 체인이 실행되기 전 값이므로, 체인 안에서
  * 메시지가 어떻게 바뀌든 원본을 계속 참조할 수 있다.
  *
+ * <p><b>{@code requestPayload}</b> 는 {@code originPayload} 와 내용이 같지만
+ * {@code includeRequestPayload} 플래그로 게이팅된다 — 켜야 담기고, 끄면 {@code null} 이다.
+ * 로그 테이블에 요청 본문을 넣을지 말지를 플래그 하나로 제어하려는 용도다.
+ *
+ * <p><b>{@code responsePayload} 는 없다.</b> {@code includeResponsePayload} 플래그는
+ * 전달되지만 응답 payload 는 스코프의 하위 체인이 끝나야 정해지는 값이라, 스코프가 반환하는
+ * attributes 를 교체하는 방식이 필요하다 — {@code endTime} 과 같은 제약이다.
+ *
  * <p><b>직렬화 주의.</b> {@link Serializable} 을 선언하고 있고 나머지 필드는 모두
  * 직렬화 가능하지만, {@code originPayload} / {@code originAttributes} 는 사용자의 임의
  * 객체다. 이 컨텍스트를 VM connector / persistent object store / 클러스터로 넘길 계획이면
@@ -63,6 +71,9 @@ public class LogContext implements Serializable {
   private final Status status;
   private final String correlationId;
   private final LocalDateTime startTime;
+  private final boolean includeRequestPayload;
+  private final boolean includeResponsePayload;
+  private final Object requestPayload;
   private final Object originPayload;
   private final Object originAttributes;
 
@@ -76,6 +87,10 @@ public class LogContext implements Serializable {
     this.status = builder.status;
     this.correlationId = builder.correlationId;
     this.startTime = builder.startTime;
+    this.includeRequestPayload = builder.includeRequestPayload;
+    this.includeResponsePayload = builder.includeResponsePayload;
+    // 플래그와 값이 어긋날 수 없도록 여기서 파생시킨다. 별도 setter 를 두지 않는 이유다.
+    this.requestPayload = builder.includeRequestPayload ? builder.originPayload : null;
     this.originPayload = builder.originPayload;
     this.originAttributes = builder.originAttributes;
   }
@@ -152,7 +167,29 @@ public class LogContext implements Serializable {
     return startTime;
   }
 
-  /** 컴포넌트 진입 전 payload. Scope 의 경우 하위 체인 실행 전 값이다. */
+  /** 진입 직전 payload 를 {@link #getRequestPayload()} 로 기록할지 여부. */
+  public boolean isIncludeRequestPayload() {
+    return includeRequestPayload;
+  }
+
+  /** 응답 payload 기록 여부. 현재 플래그만 전달되고 응답 항목은 채워지지 않는다. */
+  public boolean isIncludeResponsePayload() {
+    return includeResponsePayload;
+  }
+
+  /**
+   * 진입 직전 payload — {@code includeRequestPayload} 가 {@code true} 일 때만 값이 있고,
+   * 아니면 {@code null} 이다.
+   *
+   * <p>{@link #getOriginPayload()} 와 내용은 같다. 차이는 게이팅 여부뿐이다:
+   * {@code originPayload} 는 항상 담기고, {@code requestPayload} 는 플래그로 켜야 담긴다.
+   * 로그 테이블에 본문을 넣을지 말지를 플래그 하나로 제어하려면 이쪽을 쓴다.
+   */
+  public Object getRequestPayload() {
+    return requestPayload;
+  }
+
+  /** 컴포넌트 진입 전 payload. Scope 의 경우 하위 체인 실행 전 값이다. 항상 담긴다. */
   public Object getOriginPayload() {
     return originPayload;
   }
@@ -184,6 +221,9 @@ public class LogContext implements Serializable {
     map.put("status", status.name());
     map.put("correlationId", correlationId);
     map.put("startTime", startTime);
+    map.put("includeRequestPayload", includeRequestPayload);
+    map.put("includeResponsePayload", includeResponsePayload);
+    map.put("requestPayload", requestPayload);
     map.put("originPayload", originPayload);
     map.put("originAttributes", originAttributes);
     return Collections.unmodifiableMap(map);
@@ -211,7 +251,9 @@ public class LogContext implements Serializable {
         && Objects.equals(targetAppName, that.targetAppName)
         && status == that.status
         && Objects.equals(correlationId, that.correlationId)
-        && Objects.equals(startTime, that.startTime);
+        && Objects.equals(startTime, that.startTime)
+        && includeRequestPayload == that.includeRequestPayload
+        && includeResponsePayload == that.includeResponsePayload;
   }
 
   @Override
@@ -237,6 +279,9 @@ public class LogContext implements Serializable {
         + ", status=" + status
         + ", correlationId='" + correlationId + '\''
         + ", startTime=" + startTime
+        + ", includeRequestPayload=" + includeRequestPayload
+        + ", includeResponsePayload=" + includeResponsePayload
+        + ", requestPayload=" + describe(requestPayload)
         + ", originPayload=" + describe(originPayload)
         + ", originAttributes=" + describe(originAttributes)
         + '}';
@@ -260,6 +305,8 @@ public class LogContext implements Serializable {
     private Status status;
     private String correlationId;
     private LocalDateTime startTime;
+    private boolean includeRequestPayload;
+    private boolean includeResponsePayload;
     private Object originPayload;
     private Object originAttributes;
 
@@ -327,13 +374,30 @@ public class LogContext implements Serializable {
       return this;
     }
 
+    /**
+     * {@code true} 면 {@link #originPayload(Object)} 로 넘긴 값이
+     * {@code requestPayload} 에도 담긴다. 값은 {@link #build()} 에서 파생되므로
+     * {@code requestPayload} 를 직접 넣는 setter 는 없다 — 플래그와 값이 어긋날 수 없다.
+     */
+    public Builder includeRequestPayload(boolean includeRequestPayload) {
+      this.includeRequestPayload = includeRequestPayload;
+      return this;
+    }
+
+    public Builder includeResponsePayload(boolean includeResponsePayload) {
+      this.includeResponsePayload = includeResponsePayload;
+      return this;
+    }
+
     /** {@link LogContextParameters} 의 값을 한 번에 채운다. */
     public Builder from(LogContextParameters params) {
       return triggerType(params.getTriggerType())
           .actor(params.getActor())
           .sourceAppName(params.getSourceAppName())
           .targetAppName(params.getTargetAppName())
-          .status(params.getStatus());
+          .status(params.getStatus())
+          .includeRequestPayload(params.isIncludeRequestPayload())
+          .includeResponsePayload(params.isIncludeResponsePayload());
     }
 
     /**

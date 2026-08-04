@@ -8,7 +8,7 @@
 | Mule Runtime | 4.9.17 |
 | JDK | 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
-| 현재 버전 | `1.0.4-SNAPSHOT` |
+| 현재 버전 | `1.0.5-SNAPSHOT` |
 | XML prefix | `biz-log` |
 | Base package | `org.mycompany.bizcom.log` |
 
@@ -54,7 +54,7 @@
 > 그래서 `flowVersion` / `baseTableName` 을 Scope 자체 파라미터로 받습니다. 앱마다 한 번만
 > 정하려면 위 예시처럼 `${...}` property placeholder 를 쓰면 됩니다.
 
-7개 파라미터 모두 기본값이 있어 속성 없이도 동작합니다.
+9개 파라미터 모두 기본값이 있어 속성 없이도 동작합니다.
 
 ```xml
 <biz-log:logging-context>
@@ -113,6 +113,8 @@ Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값�
 | `sourceAppName` | String | `#[p('app.name')]` | 호출 출발 애플리케이션 명 |
 | `targetAppName` | String | `biz-com-exp-listener` | 연동 대상 애플리케이션 명 |
 | `status` | enum | `SUCCESS` | `SUCCESS` (정상 처리), `FAIL` (실패) |
+| `includeRequestPayload` | boolean | `false` | 진입 직전 payload 를 `requestPayload` 로 기록 |
+| `includeResponsePayload` | boolean | `false` | 응답 payload 기록 여부 (아래 참고) |
 
 `sourceAppName` 만 기본값이 **리터럴이 아니라 표현식**입니다. `p('app.name')` 은 Mule 이
 배포된 애플리케이션 이름을 돌려주므로, 커넥터를 쓰는 앱이 자기 이름을 따로 적지 않아도
@@ -131,7 +133,7 @@ enum 상수는 앱 XML 의 스키마 검증 대상입니다. 상수를 변경하
 Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(defaultValue = ...)` 을
 붙이면 스키마상 required 가 아니게 되어 XML 에서 생략할 수 있습니다.
 
-**7개 파라미터 모두 기본값이 있으므로 스키마 레벨 필수는 하나도 없습니다.** 속성 없이도
+**9개 파라미터 모두 기본값이 있으므로 스키마 레벨 필수는 하나도 없습니다.** 속성 없이도
 컴포넌트가 동작합니다.
 
 ```xml
@@ -153,7 +155,7 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 
 ## 컨텍스트에 실리는 항목
 
-`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 11개가 노출됩니다.
+`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 14개가 노출됩니다.
 
 | 항목 | 타입 | 출처 |
 |---|---|---|
@@ -166,6 +168,9 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 | `status` | `Status` | 파라미터 (기본 `SUCCESS`) |
 | `correlationId` | String | **기존** Mule 이벤트의 correlation id |
 | `startTime` | `LocalDateTime` | 커넥터가 자동 기록 |
+| `includeRequestPayload` | boolean | 파라미터 (기본 `false`) |
+| `includeResponsePayload` | boolean | 파라미터 (기본 `false`) |
+| `requestPayload` | Object | `includeRequestPayload=true` 일 때만 진입 직전 payload |
 | `originPayload` | Object | 컴포넌트 진입 **전** payload |
 | `originAttributes` | Object | 컴포넌트 진입 **전** attributes |
 
@@ -197,6 +202,33 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 처리 소요시간을 재려면 종료 시각이 필요합니다. 스코프가 체인 실행을 마친 뒤 `endTime` 을
 채우는 방식이 되며, 그 값은 체인 **안에서는** 볼 수 없고 스코프가 반환하는 attributes 에만
 실립니다. 필요하시면 추가하겠습니다.
+
+### requestPayload — includeRequestPayload 로 게이팅
+
+`includeRequestPayload="true"` 일 때만 진입 직전 payload 가 `requestPayload` 에 담기고,
+꺼져 있으면 `null` 입니다. 기본값은 `false` — 요청 본문을 로그에 담는 것은 용량과
+민감정보 노출 비용이 있는 선택이라 명시적으로 켜야 담기게 했습니다.
+
+```xml
+<biz-log:logging-context includeRequestPayload="true">
+  <logger message="#[attributes.requestPayload]"/>
+</biz-log:logging-context>
+```
+
+값은 빌드 시점에 `originPayload` 로부터 파생되므로 플래그와 값이 어긋날 수 없습니다
+(`requestPayload` 를 직접 넣는 setter 가 없습니다).
+
+> **`originPayload` 와 내용이 같습니다.** 차이는 게이팅 여부뿐입니다 — `originPayload` 는
+> 항상 담기고 `requestPayload` 는 플래그로 켜야 담깁니다. 로그 테이블에 본문을 넣을지를
+> 플래그 하나로 제어하려면 `requestPayload` 를, 플로우 안에서 원본을 참조할 목적이면
+> `originPayload` 를 쓰세요. 둘 다 필요 없다면 정리해 드릴 수 있습니다.
+
+### includeResponsePayload — 플래그만 전달됩니다
+
+**`responsePayload` 항목은 아직 없습니다.** 응답 payload 는 스코프의 하위 체인이 끝나야
+정해지는 값이라, 스코프가 반환하는 attributes 를 교체하는 방식이 필요합니다 — 취소하신
+`endTime` 과 같은 제약입니다. 현재는 플래그만 컨텍스트에 실려 downstream 이 "응답을
+기록할 의도였는지"를 알 수 있습니다.
 
 ### originPayload / originAttributes
 
@@ -326,7 +358,7 @@ mvn verify -Pfunctional-tests
 기능이 추가될 때마다 **patch 자리를 하나** 올립니다.
 
 ```
-1.0.4-SNAPSHOT  →  1.0.4-SNAPSHOT  →  1.0.4-SNAPSHOT  ...
+1.0.5-SNAPSHOT  →  1.0.5-SNAPSHOT  →  1.0.5-SNAPSHOT  ...
 ```
 
 `minor` / `major` 자리는 호환성이 깨지는 변경에 남겨 둡니다. 예를 들어 enum 상수 제거,
@@ -341,7 +373,7 @@ mvn verify -Pfunctional-tests
 <dependency>
   <groupId>org.mycompany</groupId>
   <artifactId>biz-com-lib-log-connector</artifactId>
-  <version>1.0.4-SNAPSHOT</version>
+  <version>1.0.5-SNAPSHOT</version>
   <classifier>mule-plugin</classifier>
 </dependency>
 ```
