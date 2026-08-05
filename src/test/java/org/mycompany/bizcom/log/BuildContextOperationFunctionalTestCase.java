@@ -35,10 +35,10 @@ public class BuildContextOperationFunctionalTestCase extends MuleArtifactFunctio
     assertThat(event.getMessage().getPayload().getValue(), is("integration-user|SUCCESS"));
   }
 
-  /** 컴포넌트 진입 전 payload 가 {@code vars.ctx.originPayload} 로 실려야 한다. */
+  /** 컴포넌트 진입 전 payload 가 {@code vars.ctx.requestPayload} 로 실려야 한다. */
   @Test
-  public void exposesOriginPayload() throws Exception {
-    CoreEvent event = flowRunner("operationExposesOriginMessage")
+  public void exposesRequestPayload() throws Exception {
+    CoreEvent event = flowRunner("operationExposesRequestPayload")
         .withPayload("INCOMING-BODY")
         .run();
 

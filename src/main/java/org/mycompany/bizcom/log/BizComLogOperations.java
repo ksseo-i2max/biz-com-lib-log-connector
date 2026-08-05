@@ -78,8 +78,9 @@ public class BizComLogOperations {
    * <p>2. {@code payload} 파라미터. {@link Chain} 에 attributes 를 실어 보내려면 payload 도
    * 함께 넘겨야 하는데, 여기에 임의 값을 넣으면 사용자의 원본 payload 가 조용히 사라진다.
    * {@code #[payload]} 를 기본값으로 받아 원본 payload 와 media type 을 그대로 되돌려주어
-   * pass-through 를 보장한다. 같은 값이 {@code attributes.originPayload} 로도 실린다.
-   * 기본값이 있으므로 사용자가 DSL 에 명시할 필요는 없다.
+   * pass-through 를 보장한다. 같은 값이 {@code includeRequestPayload="true"} 일 때만
+   * {@code attributes.requestPayload} 로도 실린다. 기본값이 있으므로 사용자가 DSL 에
+   * 명시할 필요는 없다.
    *
    * <p>3. 에러 전파. 체인 내부 예외는 감싸지 않고 {@code callback.error(throwable)} 로
    * 그대로 넘긴다. 그래야 원본 에러 타입이 유지되어 사용자의 {@code <error-handler>} 가
@@ -100,8 +101,8 @@ public class BizComLogOperations {
   public void loggingContext(@ParameterGroup(name = TARGET_GROUP) LogTargetParameters target,
                           @ParameterGroup(name = CONTEXT_GROUP) LogContextParameters params,
                           @Optional(defaultValue = Optional.PAYLOAD)
-                          @Summary("체인으로 전달하고 originPayload 로도 기록할 payload."
-                              + " 기본값은 현재 payload 다.")
+                          @Summary("체인으로 전달하고 includeRequestPayload 가 켜져 있으면"
+                              + " requestPayload 로도 기록할 payload. 기본값은 현재 payload 다.")
                           TypedValue<Object> payload,
                           @Optional(defaultValue = CURRENT_ATTRIBUTES)
                           @Summary("originAttributes 로 기록할 attributes."
@@ -114,19 +115,19 @@ public class BizComLogOperations {
 
     // 스트림 payload 를 체인 실행 후에도 다시 읽을 수 있도록 repeatable provider 로 바꾼다.
     // 원본 커서를 그대로 들고 있으면 체인이 소비한 뒤 읽을 수 없다.
-    Object originPayload = streamingHelper.resolveCursorProvider(valueOf(payload));
+    Object resolvedPayload = streamingHelper.resolveCursorProvider(valueOf(payload));
 
     LogContext context = LogContext.from(target, params)
         .sourceAppName(resolveSourceAppName())
         .correlationId(correlationIdOf(correlationInfo))
-        .originPayload(originPayload)
+        .payload(resolvedPayload)
         .originAttributes(valueOf(originAttributes))
         .build();
 
-    // 체인에 넘기는 payload 도 위에서 resolve 한 값을 그대로 써서, 체인과 originPayload 가
+    // 체인에 넘기는 payload 도 위에서 resolve 한 값을 그대로 써서, 체인과 requestPayload 가
     // 같은 repeatable provider 를 가리키게 한다.
     Result<Object, Object> input = Result.<Object, Object>builder()
-        .output(originPayload)
+        .output(resolvedPayload)
         .mediaType(mediaTypeOf(payload))
         .attributes(context)
         .build();
@@ -165,7 +166,8 @@ public class BizComLogOperations {
   public LogContext buildContext(@Config BizComLogConfiguration config,
                                  @ParameterGroup(name = CONTEXT_GROUP) LogContextParameters params,
                                  @Optional(defaultValue = Optional.PAYLOAD)
-                                 @Summary("originPayload 로 기록할 payload."
+                                 @Summary("includeRequestPayload 가 켜져 있으면"
+                                     + " requestPayload 로 기록할 payload."
                                      + " 기본값은 현재 payload 다.")
                                  TypedValue<Object> payload,
                                  @Optional(defaultValue = CURRENT_ATTRIBUTES)
@@ -177,7 +179,7 @@ public class BizComLogOperations {
     return LogContext.from(config, params)
         .sourceAppName(resolveSourceAppName())
         .correlationId(correlationIdOf(correlationInfo))
-        .originPayload(streamingHelper.resolveCursorProvider(valueOf(payload)))
+        .payload(streamingHelper.resolveCursorProvider(valueOf(payload)))
         .originAttributes(valueOf(originAttributes))
         .build();
   }

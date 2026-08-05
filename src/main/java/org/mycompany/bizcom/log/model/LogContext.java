@@ -17,8 +17,8 @@ import org.mycompany.bizcom.log.param.Status;
 import org.mycompany.bizcom.log.param.TriggerType;
 
 /**
- * 로그 대상 정보 2개, 컨텍스트 파라미터 5개, 시각 1개, correlationId, 원본 메시지 2개를
- * 합친 로그 컨텍스트.
+ * 로그 대상 정보 2개, 컨텍스트 파라미터 5개, 시각 1개, correlationId, sourceAppName,
+ * 원본 메시지 2개({@code requestPayload} / {@code originAttributes})를 합친 로그 컨텍스트.
  *
  * <p>Scope 에서는 메시지의 <b>attributes</b> 로, Operation 에서는 {@code target} 을 통해
  * <b>flow variable</b> 로 실려 나간다. 두 경로 모두 동일한 타입이므로 DataWeave 접근
@@ -42,20 +42,24 @@ import org.mycompany.bizcom.log.param.TriggerType;
  * id 를 그대로</b> 담는다. 커넥터가 {@code CorrelationInfo} 를 주입받아 채우므로, 같은
  * 이벤트에서 나온 로그끼리 이 값으로 묶을 수 있고 플로우 경계를 넘어도 동일하다.
  *
- * <p><b>{@code originPayload} / {@code originAttributes}</b> 는 컴포넌트에 진입하기 <i>전</i>
- * 의 payload / attributes 다. Scope 의 경우 하위 체인이 실행되기 전 값이므로, 체인 안에서
- * 메시지가 어떻게 바뀌든 원본을 계속 참조할 수 있다.
+ * <p><b>{@code originAttributes}</b> 는 컴포넌트에 진입하기 <i>전</i>의 attributes 다.
+ * Scope 의 경우 하위 체인이 실행되기 전 값이므로, 체인 안에서 메시지가 어떻게 바뀌든
+ * 원본을 계속 참조할 수 있다.
  *
- * <p><b>{@code requestPayload}</b> 는 {@code originPayload} 와 내용이 같지만
- * {@code includeRequestPayload} 플래그로 게이팅된다 — 켜야 담기고, 끄면 {@code null} 이다.
- * 로그 테이블에 요청 본문을 넣을지 말지를 플래그 하나로 제어하려는 용도다.
+ * <p><b>{@code requestPayload}</b> 는 진입 직전 payload 이며 {@code includeRequestPayload}
+ * 플래그로 게이팅된다 — 켜야 담기고, 끄면 {@code null} 이다. 로그 테이블에 요청 본문을
+ * 넣을지 말지를 플래그 하나로 제어하려는 용도다.
+ *
+ * <p><b>게이팅 없이 항상 담기던 {@code originPayload} 는 제거됐다</b> (1.1.0). 같은 값을
+ * 두 항목으로 들고 있어 요청 본문이 플래그와 무관하게 컨텍스트에 남았다. 원본 payload 가
+ * 필요하면 {@code includeRequestPayload="true"} 로 켜서 {@code requestPayload} 를 쓴다.
  *
  * <p><b>{@code responsePayload} 는 없다.</b> {@code includeResponsePayload} 플래그는
  * 전달되지만 응답 payload 는 스코프의 하위 체인이 끝나야 정해지는 값이라, 스코프가 반환하는
  * attributes 를 교체하는 방식이 필요하다 — {@code endTime} 과 같은 제약이다.
  *
  * <p><b>직렬화 주의.</b> {@link Serializable} 을 선언하고 있고 나머지 필드는 모두
- * 직렬화 가능하지만, {@code originPayload} / {@code originAttributes} 는 사용자의 임의
+ * 직렬화 가능하지만, {@code requestPayload} / {@code originAttributes} 는 사용자의 임의
  * 객체다. 이 컨텍스트를 VM connector / persistent object store / 클러스터로 넘길 계획이면
  * 해당 값이 직렬화 가능한지 확인해야 한다. 스트리밍 payload 는 커넥터가
  * {@code StreamingHelper.resolveCursorProvider(...)} 로 반복 조회 가능한 형태로 바꿔
@@ -87,7 +91,6 @@ public class LogContext implements Serializable {
   private final boolean includeRequestPayload;
   private final boolean includeResponsePayload;
   private final Object requestPayload;
-  private final Object originPayload;
   private final Object originAttributes;
 
   private LogContext(Builder builder) {
@@ -102,9 +105,9 @@ public class LogContext implements Serializable {
     this.startTime = builder.startTime;
     this.includeRequestPayload = builder.includeRequestPayload;
     this.includeResponsePayload = builder.includeResponsePayload;
-    // 플래그와 값이 어긋날 수 없도록 여기서 파생시킨다. 별도 setter 를 두지 않는 이유다.
-    this.requestPayload = builder.includeRequestPayload ? builder.originPayload : null;
-    this.originPayload = builder.originPayload;
+    // 플래그와 값이 어긋날 수 없도록 여기서 게이팅한다. requestPayload 를 직접 넣는
+    // setter 를 두지 않는 이유다.
+    this.requestPayload = builder.includeRequestPayload ? builder.payload : null;
     this.originAttributes = builder.originAttributes;
   }
 
@@ -180,7 +183,10 @@ public class LogContext implements Serializable {
     return startTime;
   }
 
-  /** 진입 직전 payload 를 {@link #getRequestPayload()} 로 기록할지 여부. */
+  /**
+   * 진입 직전 payload 를 {@link #getRequestPayload()} 로 기록할지 여부. 끄면 요청 본문이
+   * 컨텍스트에 전혀 남지 않는다.
+   */
   public boolean isIncludeRequestPayload() {
     return includeRequestPayload;
   }
@@ -191,20 +197,12 @@ public class LogContext implements Serializable {
   }
 
   /**
-   * 진입 직전 payload — {@code includeRequestPayload} 가 {@code true} 일 때만 값이 있고,
-   * 아니면 {@code null} 이다.
-   *
-   * <p>{@link #getOriginPayload()} 와 내용은 같다. 차이는 게이팅 여부뿐이다:
-   * {@code originPayload} 는 항상 담기고, {@code requestPayload} 는 플래그로 켜야 담긴다.
-   * 로그 테이블에 본문을 넣을지 말지를 플래그 하나로 제어하려면 이쪽을 쓴다.
+   * 컴포넌트 진입 전 payload — Scope 의 경우 하위 체인 실행 전 값이다.
+   * {@code includeRequestPayload} 가 {@code true} 일 때만 값이 있고, 아니면 {@code null}
+   * 이다. 체인 안에서 메시지가 어떻게 바뀌든 여기서 원본을 계속 참조할 수 있다.
    */
   public Object getRequestPayload() {
     return requestPayload;
-  }
-
-  /** 컴포넌트 진입 전 payload. Scope 의 경우 하위 체인 실행 전 값이다. 항상 담긴다. */
-  public Object getOriginPayload() {
-    return originPayload;
   }
 
   /** 컴포넌트 진입 전 attributes. Scope 의 경우 하위 체인 실행 전 값이다. */
@@ -220,7 +218,7 @@ public class LogContext implements Serializable {
    * {@link LocalDateTime} 객체를 그대로 둔다. 문자열로 바꾸면 타입 정보를 잃는다.
    * JDBC 는 {@code LocalDateTime} 을 오프셋 없는 {@code TIMESTAMP} 로 바인딩하므로
    * 일반적인 로그 테이블 컬럼에 그대로 들어간다.
-   * {@code originPayload} / {@code originAttributes} 도 변환하지 않고 그대로 둔다 —
+   * {@code requestPayload} / {@code originAttributes} 도 변환하지 않고 그대로 둔다 —
    * 어떤 형태로 기록할지는 호출측이 결정할 일이다.
    */
   public Map<String, Object> toMap() {
@@ -238,13 +236,12 @@ public class LogContext implements Serializable {
     map.put("includeRequestPayload", includeRequestPayload);
     map.put("includeResponsePayload", includeResponsePayload);
     map.put("requestPayload", requestPayload);
-    map.put("originPayload", originPayload);
     map.put("originAttributes", originAttributes);
     return Collections.unmodifiableMap(map);
   }
 
   /**
-   * {@code originPayload} / {@code originAttributes} 는 비교에서 <b>제외</b>한다.
+   * {@code requestPayload} / {@code originAttributes} 는 비교에서 <b>제외</b>한다.
    * 사용자의 임의 객체이므로 {@code equals} 가 identity 기반인 경우가 많아, 포함시키면
    * 논리적으로 같은 컨텍스트도 거의 항상 다르다고 판정된다.
    */
@@ -296,7 +293,6 @@ public class LogContext implements Serializable {
         + ", includeRequestPayload=" + includeRequestPayload
         + ", includeResponsePayload=" + includeResponsePayload
         + ", requestPayload=" + describe(requestPayload)
-        + ", originPayload=" + describe(originPayload)
         + ", originAttributes=" + describe(originAttributes)
         + '}';
   }
@@ -306,7 +302,7 @@ public class LogContext implements Serializable {
   }
 
   /**
-   * 필드가 10개여서 정적 팩토리 대신 빌더를 쓴다. 검증은 {@link #build()} 한 곳에만 있다.
+   * 필드가 열 개가 넘어 정적 팩토리 대신 빌더를 쓴다. 검증은 {@link #build()} 한 곳에만 있다.
    */
   public static final class Builder {
 
@@ -321,7 +317,7 @@ public class LogContext implements Serializable {
     private LocalDateTime startTime;
     private boolean includeRequestPayload;
     private boolean includeResponsePayload;
-    private Object originPayload;
+    private Object payload;
     private Object originAttributes;
 
     private Builder() {
@@ -378,8 +374,12 @@ public class LogContext implements Serializable {
       return this;
     }
 
-    public Builder originPayload(Object originPayload) {
-      this.originPayload = originPayload;
+    /**
+     * 진입 직전 payload. {@code includeRequestPayload} 가 켜져 있을 때만
+     * {@code requestPayload} 로 담기고, 꺼져 있으면 이 값은 버려진다.
+     */
+    public Builder payload(Object payload) {
+      this.payload = payload;
       return this;
     }
 
@@ -389,9 +389,9 @@ public class LogContext implements Serializable {
     }
 
     /**
-     * {@code true} 면 {@link #originPayload(Object)} 로 넘긴 값이
-     * {@code requestPayload} 에도 담긴다. 값은 {@link #build()} 에서 파생되므로
-     * {@code requestPayload} 를 직접 넣는 setter 는 없다 — 플래그와 값이 어긋날 수 없다.
+     * {@code true} 면 {@link #payload(Object)} 로 넘긴 값이 {@code requestPayload} 로
+     * 담긴다. 값은 {@link #build()} 에서 게이팅되므로 {@code requestPayload} 를 직접 넣는
+     * setter 는 없다 — 플래그와 값이 어긋날 수 없다.
      */
     public Builder includeRequestPayload(boolean includeRequestPayload) {
       this.includeRequestPayload = includeRequestPayload;

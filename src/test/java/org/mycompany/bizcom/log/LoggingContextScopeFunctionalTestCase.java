@@ -53,20 +53,10 @@ public class LoggingContextScopeFunctionalTestCase extends MuleArtifactFunctiona
     assertThat(errorType, is("MULE:EXPRESSION"));
   }
 
-  /** 스코프 진입 전 payload 가 {@code attributes.originPayload} 로 실려야 한다. */
+  /** 체인이 payload 를 교체한 뒤에도 {@code requestPayload} 로 원본을 되찾을 수 있어야 한다. */
   @Test
-  public void exposesOriginPayload() throws Exception {
-    CoreEvent event = flowRunner("scopeExposesOriginMessage")
-        .withPayload("INCOMING-BODY")
-        .run();
-
-    assertThat(event.getMessage().getPayload().getValue(), is("INCOMING-BODY"));
-  }
-
-  /** 체인이 payload 를 교체한 뒤에도 {@code originPayload} 로 원본을 되찾을 수 있어야 한다. */
-  @Test
-  public void originPayloadSurvivesReplacementInsideChain() throws Exception {
-    CoreEvent event = flowRunner("scopeOriginPayloadSurvivesReplacement")
+  public void requestPayloadSurvivesReplacementInsideChain() throws Exception {
+    CoreEvent event = flowRunner("scopeRequestPayloadSurvivesReplacement")
         .withPayload("INCOMING-BODY")
         .run();
 
@@ -116,7 +106,8 @@ public class LoggingContextScopeFunctionalTestCase extends MuleArtifactFunctiona
 
   /**
    * {@code includeRequestPayload="false"} 면 {@code requestPayload} 가 비어야 한다.
-   * {@code originPayload} 는 플래그와 무관하게 항상 담긴다.
+   * 게이팅 없이 항상 담기던 {@code originPayload} 를 제거했으므로, 이 경우 요청 본문은
+   * 컨텍스트 어디에도 남지 않는다.
    */
   @Test
   public void omitsRequestPayloadWhenDisabled() throws Exception {
@@ -124,7 +115,7 @@ public class LoggingContextScopeFunctionalTestCase extends MuleArtifactFunctiona
         .withPayload("INCOMING-BODY")
         .run();
 
-    assertThat(event.getMessage().getPayload().getValue(), is("NULL|INCOMING-BODY"));
+    assertThat(event.getMessage().getPayload().getValue(), is("NULL"));
   }
 
   /** 기본값이 있는 파라미터를 생략하면 문서화된 기본값이 적용되어야 한다. */

@@ -8,7 +8,7 @@
 | Mule Runtime | 4.9.17 |
 | JDK | 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
-| 현재 버전 | `1.0.8-SNAPSHOT` |
+| 현재 버전 | `1.1.0-SNAPSHOT` |
 | XML prefix | `biz-log` |
 | Base package | `org.mycompany.bizcom.log` |
 
@@ -157,7 +157,7 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 
 ## 컨텍스트에 실리는 항목
 
-`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 14개가 노출됩니다.
+`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 13개가 노출됩니다.
 
 | 항목 | 타입 | 출처 |
 |---|---|---|
@@ -172,16 +172,20 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 | `startTime` | `LocalDateTime` | 커넥터가 자동 기록 (**UTC 기준**) |
 | `includeRequestPayload` | boolean | 파라미터 (필수) |
 | `includeResponsePayload` | boolean | 파라미터 (필수) |
-| `requestPayload` | Object | `includeRequestPayload=true` 일 때만 진입 직전 payload |
-| `originPayload` | Object | 컴포넌트 진입 **전** payload |
+| `requestPayload` | Object | 컴포넌트 진입 **전** payload. `includeRequestPayload=true` 일 때만 |
 | `originAttributes` | Object | 컴포넌트 진입 **전** attributes |
 
 ```xml
 <logger message="#[attributes.correlationId]"/>
 <logger message="#[attributes.startTime]"/>
-<logger message="#[attributes.originPayload]"/>
+<logger message="#[attributes.requestPayload]"/>             <!-- 플래그를 켰을 때만 -->
 <logger message="#[attributes.originAttributes.headers]"/>   <!-- 예: HTTP 요청 헤더 -->
 ```
+
+> **1.1.0 에서 `originPayload` 가 제거됐습니다.** `requestPayload` 와 내용이 같으면서
+> 게이팅 없이 항상 담겨, `includeRequestPayload="false"` 로 꺼도 요청 본문이 컨텍스트에
+> 남았습니다. 원본 payload 가 필요하면 `includeRequestPayload="true"` 로 켜고
+> `requestPayload` 를 쓰세요.
 
 ### correlationId
 
@@ -214,23 +218,22 @@ configurationProperties.resolveStringProperty("app.name").orElse(null)
 
 ### startTime — UTC 기준
 
-컨텍스트 생성 시각이 `OffsetDateTime.now(ZoneOffset.UTC)` 로 채워집니다. Scope 의 경우
+컨텍스트 생성 시각이 `LocalDateTime.now(ZoneOffset.UTC)` 로 채워집니다. Scope 의 경우
 **하위 체인 실행 전**, 즉 스코프 진입 시각입니다.
 
-타입이 `OffsetDateTime` 이라 **값 자체가 `Z` 오프셋을 들고 다닙니다.**
-
-```
-2026-08-04T06:15:30.123Z
-```
-
-`LocalDateTime` 을 쓰면 서버 로컬 타임존으로 찍히면서 타임존 정보도 안 남아, 여러 환경/
-리전의 로그를 한 테이블에서 비교할 수 없습니다. 그래서 UTC 로 고정하고 오프셋을 값에
-포함시켰습니다. 앞으로 추가되는 시각 항목도 같은 기준을 따릅니다
+서버 로컬 타임존으로 찍으면 여러 환경 / 리전의 로그를 한 테이블에서 비교할 수 없으므로
+UTC 로 고정했습니다. 앞으로 추가되는 시각 항목도 같은 기준을 따릅니다
 (`LogContext.LOG_TIME_ZONE` 한 곳에서 관리).
 
-> **DB 컬럼 타입 확인 필요.** JDBC 는 `OffsetDateTime` 을 `TIMESTAMP WITH TIME ZONE` 으로
-> 바인딩합니다. `MULE_BIZ_INTERFACE_LOG` 의 대상 컬럼이 오프셋 없는 `TIMESTAMP` 라면
-> 넣기 전에 `toLocalDateTime()` 하거나 DataWeave 에서 포맷을 맞춰야 합니다.
+```
+2026-08-04T06:15:30.123
+```
+
+> **타입이 `LocalDateTime` 이라 값에 오프셋이 남지 않습니다.** "이 커넥터의 시각은 UTC"
+> 라는 약속으로만 성립하므로, 컬럼 주석이나 API 문서에 함께 남겨 두세요. 값에 오프셋을
+> 새기려면 `OffsetDateTime` 이어야 하지만, JDBC 가 `TIMESTAMP WITH TIME ZONE` 으로
+> 바인딩하게 되어 오프셋 없는 `TIMESTAMP` 컬럼에 그대로 넣을 수 없습니다. 일반적인 로그
+> 테이블 컬럼에 바로 들어가는 쪽을 택했습니다.
 
 처리 소요시간을 재려면 종료 시각이 필요합니다. 스코프가 체인 실행을 마친 뒤 `endTime` 을
 채우는 방식이 되며, 그 값은 체인 **안에서는** 볼 수 없고 스코프가 반환하는 attributes 에만
@@ -239,8 +242,8 @@ configurationProperties.resolveStringProperty("app.name").orElse(null)
 ### requestPayload — includeRequestPayload 로 게이팅
 
 `includeRequestPayload="true"` 일 때만 진입 직전 payload 가 `requestPayload` 에 담기고,
-꺼져 있으면 `null` 입니다. 기본값은 `false` — 요청 본문을 로그에 담는 것은 용량과
-민감정보 노출 비용이 있는 선택이라 명시적으로 켜야 담기게 했습니다.
+꺼져 있으면 `null` 입니다. 기본값 없이 **필수**라 매번 명시해야 합니다 — 요청 본문을
+로그에 담는 것은 용량과 민감정보 노출 비용이 있는 선택이기 때문입니다.
 
 ```xml
 <biz-log:logging-context includeRequestPayload="true" includeResponsePayload="false">
@@ -248,13 +251,27 @@ configurationProperties.resolveStringProperty("app.name").orElse(null)
 </biz-log:logging-context>
 ```
 
-값은 빌드 시점에 `originPayload` 로부터 파생되므로 플래그와 값이 어긋날 수 없습니다
-(`requestPayload` 를 직접 넣는 setter 가 없습니다).
+값은 빌드 시점에 게이팅되므로 플래그와 값이 어긋날 수 없습니다 (`requestPayload` 를
+직접 넣는 setter 가 없습니다).
 
-> **`originPayload` 와 내용이 같습니다.** 차이는 게이팅 여부뿐입니다 — `originPayload` 는
-> 항상 담기고 `requestPayload` 는 플래그로 켜야 담깁니다. 로그 테이블에 본문을 넣을지를
-> 플래그 하나로 제어하려면 `requestPayload` 를, 플로우 안에서 원본을 참조할 목적이면
-> `originPayload` 를 쓰세요. 둘 다 필요 없다면 정리해 드릴 수 있습니다.
+**1.1.0 부터 이 플래그가 요청 본문이 컨텍스트에 남는지를 결정하는 유일한 스위치입니다.**
+이전에는 게이팅 없이 항상 담기는 `originPayload` 가 함께 있어, 플래그를 꺼도 본문이
+그대로 남았습니다.
+
+Scope 는 attributes 를 교체하는 컴포넌트를 지나면 컨텍스트가 소실되므로, 체인 뒤에서
+원본을 참조하려면 진입 직후 `vars` 로 옮겨 둡니다.
+
+```xml
+<biz-log:logging-context includeRequestPayload="true" includeResponsePayload="false">
+  <set-variable variableName="ctx" value="#[attributes]"/>
+  <http:request .../>                               <!-- 메시지 교체 -->
+  <logger message="#[vars.ctx.requestPayload]"/>    <!-- 원본 요청 본문 -->
+</biz-log:logging-context>
+```
+
+스트리밍 payload 는 커넥터가 `StreamingHelper.resolveCursorProvider(...)` 로 반복 조회
+가능한 형태로 바꿔 담습니다. 원본 커서를 그대로 들고 있으면 체인이 소비한 뒤 다시 읽을
+수 없기 때문입니다.
 
 ### includeResponsePayload — 플래그만 전달됩니다
 
@@ -263,7 +280,7 @@ configurationProperties.resolveStringProperty("app.name").orElse(null)
 `endTime` 과 같은 제약입니다. 현재는 플래그만 컨텍스트에 실려 downstream 이 "응답을
 기록할 의도였는지"를 알 수 있습니다.
 
-### originPayload / originAttributes
+### originAttributes
 
 Scope 는 attributes 를 로그 컨텍스트로 **교체**하므로, 원래 attributes 는
 `attributes.originAttributes` 에서 꺼내 씁니다. 체인 안에서 메시지가 어떻게 바뀌든
@@ -271,25 +288,24 @@ Scope 는 attributes 를 로그 컨텍스트로 **교체**하므로, 원래 attr
 
 ```xml
 <biz-log:logging-context baseTableName="MULE_BIZ_INTERFACE_LOG" triggerType="API"
-    actor="SFDC" targetAppName="biz-com-exp-listener" status="SUCCESS">
+    actor="SFDC" targetAppName="biz-com-exp-listener" status="SUCCESS"
+    includeRequestPayload="false" includeResponsePayload="false">
 
-  <set-variable variableName="ctx" value="#[attributes]"/>
-  <http:request .../>                              <!-- 메시지 교체 -->
-  <logger message="#[vars.ctx.originPayload]"/>    <!-- 원본 요청 본문 -->
+  <logger message="#[attributes.originAttributes.headers]"/>   <!-- 원본 HTTP 헤더 -->
 </biz-log:logging-context>
 ```
 
-스트리밍 payload 는 커넥터가 `StreamingHelper.resolveCursorProvider(...)` 로 반복 조회
-가능한 형태로 바꿔 담습니다. 원본 커서를 그대로 들고 있으면 체인이 소비한 뒤 다시 읽을
-수 없기 때문입니다.
+`requestPayload` 와 달리 게이팅이 없어 항상 담깁니다. attributes 는 보통 헤더 / 쿼리
+파라미터 수준이라 본문만큼의 용량 부담이 없기 때문입니다 — 다만 헤더에 토큰이 실릴 수는
+있습니다.
 
 > **직렬화 주의.** `LogContext` 는 `Serializable` 이고 나머지 필드는 모두 직렬화 가능하지만,
-> `originPayload` / `originAttributes` 는 사용자의 임의 객체입니다. 이 컨텍스트를
+> `requestPayload` / `originAttributes` 는 사용자의 임의 객체입니다. 이 컨텍스트를
 > VM connector / persistent object store / 클러스터로 넘길 계획이면 해당 값이 직렬화
 > 가능한지 확인하세요. `CursorProvider` 는 직렬화 대상이 아닙니다.
 
 > **로그 노출 주의.** `LogContext.toString()` 은 원본 payload 의 **값을 찍지 않고 타입만**
-> 남깁니다 (`originPayload=<String>`). 요청 본문 전체가 로그에 쏟아지면 용량 문제와
+> 남깁니다 (`requestPayload=<String>`). 요청 본문 전체가 로그에 쏟아지면 용량 문제와
 > 민감정보 노출로 이어지기 때문입니다. DB 에 기록할 때는 `toMap()` 이 원본 객체를 그대로
 > 주므로 마스킹 여부를 호출측에서 결정하세요.
 
@@ -391,12 +407,16 @@ mvn verify -Pfunctional-tests
 기능이 추가될 때마다 **patch 자리를 하나** 올립니다.
 
 ```
-1.0.8-SNAPSHOT  →  1.0.8-SNAPSHOT  →  1.0.8-SNAPSHOT  ...
+1.0.6-SNAPSHOT  →  1.0.7-SNAPSHOT  →  1.0.8-SNAPSHOT  ...
 ```
 
 `minor` / `major` 자리는 호환성이 깨지는 변경에 남겨 둡니다. 예를 들어 enum 상수 제거,
 파라미터 이름 변경, 컨텍스트 항목 제거처럼 이미 배포된 앱의 XML 이나 DataWeave 표현식을
 깨뜨리는 변경이 그렇습니다.
+
+**1.0.8 → 1.1.0** 이 그 경우입니다. `originPayload` 컨텍스트 항목을 제거했으므로
+`#[attributes.originPayload]` / `#[vars.ctx.originPayload]` 를 쓰던 앱은 고쳐야 합니다
+(`includeRequestPayload="true"` + `requestPayload`).
 
 버전은 `pom.xml` 과 이 README 두 곳에 있습니다 (`.idea/` 는 IDE 생성물이라 gitignore 대상).
 
@@ -406,7 +426,7 @@ mvn verify -Pfunctional-tests
 <dependency>
   <groupId>org.mycompany</groupId>
   <artifactId>biz-com-lib-log-connector</artifactId>
-  <version>1.0.8-SNAPSHOT</version>
+  <version>1.1.0-SNAPSHOT</version>
   <classifier>mule-plugin</classifier>
 </dependency>
 ```

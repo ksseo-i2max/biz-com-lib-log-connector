@@ -3,6 +3,7 @@ package org.mycompany.bizcom.log.model;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
@@ -56,7 +57,8 @@ public class LogContextTestCase {
     Object attributes = new Object();
 
     LogContext ctx = valid()
-        .originPayload(payload)
+        .payload(payload)
+        .includeRequestPayload(true)
         .originAttributes(attributes)
         .build();
 
@@ -69,7 +71,7 @@ public class LogContextTestCase {
     assertThat(ctx.getStatus(), is(SUCCESS));
     assertThat(ctx.getCorrelationId(), is("corr-0001"));
     assertThat(ctx.getStartTime(), is(FIXED));
-    assertThat(ctx.getOriginPayload(), is(sameInstance(payload)));
+    assertThat(ctx.getRequestPayload(), is(sameInstance(payload)));
     assertThat(ctx.getOriginAttributes(), is(sameInstance(attributes)));
   }
 
@@ -142,20 +144,21 @@ public class LogContextTestCase {
         .status(FAIL)
         .correlationId("corr-0002")
         .startTime(FIXED)
-        .originPayload(payload)
+        .payload(payload)
+        .includeRequestPayload(true)
         .build()
         .toMap();
 
     assertThat(map.keySet(), contains("flowVersion", "baseTableName", "triggerType", "actor",
         "sourceAppName", "targetAppName", "status", "correlationId", "startTime",
         "includeRequestPayload", "includeResponsePayload", "requestPayload",
-        "originPayload", "originAttributes"));
+        "originAttributes"));
     assertThat(map.get("flowVersion"), is("v2"));
     assertThat(map.get("triggerType"), is("BATCH"));
     assertThat(map.get("status"), is("FAIL"));
     assertThat(map.get("correlationId"), is("corr-0002"));
     assertThat(map.get("startTime"), is(FIXED));
-    assertThat(map.get("originPayload"), is(sameInstance(payload)));
+    assertThat(map.get("requestPayload"), is(sameInstance(payload)));
     assertThat(map.get("originAttributes"), is((Object) null));
   }
 
@@ -186,36 +189,38 @@ public class LogContextTestCase {
   }
 
   /**
-   * {@code includeRequestPayload} 가 켜지면 {@code originPayload} 와 <b>같은 인스턴스</b>가
-   * {@code requestPayload} 에도 담긴다. 값이 빌드 시점에 파생되므로 둘이 어긋날 수 없다.
+   * {@code includeRequestPayload} 가 켜지면 빌더로 넘긴 payload 와 <b>같은 인스턴스</b>가
+   * {@code requestPayload} 에 담긴다. 값이 빌드 시점에 게이팅되므로 플래그와 어긋날 수 없다.
    */
   @Test
-  public void copiesOriginPayloadIntoRequestPayloadWhenIncluded() {
+  public void copiesPayloadIntoRequestPayloadWhenIncluded() {
     Object payload = "REQUEST-BODY";
 
     LogContext ctx = valid()
-        .originPayload(payload)
+        .payload(payload)
         .includeRequestPayload(true)
         .build();
 
     assertThat(ctx.isIncludeRequestPayload(), is(true));
     assertThat(ctx.getRequestPayload(), is(sameInstance(payload)));
-    assertThat(ctx.getOriginPayload(), is(sameInstance(payload)));
     assertThat(ctx.toMap().get("requestPayload"), is(sameInstance(payload)));
   }
 
-  /** 플래그가 꺼져 있으면 originPayload 가 있어도 requestPayload 는 null 이다. */
+  /**
+   * 플래그가 꺼져 있으면 payload 를 넘겨도 컨텍스트에 남지 않는다. 게이팅 없이 항상 담기던
+   * {@code originPayload} 를 제거했으므로 이 플래그가 유일한 스위치다.
+   */
   @Test
   public void leavesRequestPayloadNullWhenNotIncluded() {
     LogContext ctx = valid()
-        .originPayload("REQUEST-BODY")
+        .payload("REQUEST-BODY")
         .includeRequestPayload(false)
         .build();
 
     assertThat(ctx.isIncludeRequestPayload(), is(false));
     assertThat(ctx.getRequestPayload(), is((Object) null));
-    assertThat("originPayload 는 플래그와 무관하게 담긴다",
-        ctx.getOriginPayload(), is((Object) "REQUEST-BODY"));
+    assertThat("요청 본문이 다른 항목으로도 새지 않아야 한다",
+        ctx.toMap().values(), not(hasItem((Object) "REQUEST-BODY")));
   }
 
   /**
@@ -231,7 +236,7 @@ public class LogContextTestCase {
         .actor("SFDC")
         .targetAppName("biz-com-exp-listener")
         .status(SUCCESS)
-        .originPayload("REQUEST-BODY")
+        .payload("REQUEST-BODY")
         .build();
 
     assertThat(ctx.isIncludeRequestPayload(), is(false));
@@ -242,9 +247,9 @@ public class LogContextTestCase {
   /** 원본 메시지는 지정하지 않으면 null 이며, 그 자체로 오류는 아니다. */
   @Test
   public void allowsAbsentOriginMessage() {
-    LogContext ctx = valid().build();
+    LogContext ctx = valid().includeRequestPayload(true).build();
 
-    assertThat(ctx.getOriginPayload(), is((Object) null));
+    assertThat(ctx.getRequestPayload(), is((Object) null));
     assertThat(ctx.getOriginAttributes(), is((Object) null));
   }
 
@@ -264,7 +269,7 @@ public class LogContextTestCase {
   }
 
   /**
-   * {@code startTime} 은 값 비교에 참여하지만 {@code originPayload} /
+   * {@code startTime} 은 값 비교에 참여하지만 {@code requestPayload} /
    * {@code originAttributes} 는 제외된다 — 사용자의 임의 객체라 identity 기반
    * {@code equals} 인 경우가 많다.
    */
@@ -278,7 +283,10 @@ public class LogContextTestCase {
     LogContext differentCorrelationId = valid().correlationId("corr-9999").build();
     LogContext differentSourceApp = valid().sourceAppName("other-app").build();
     LogContext differentFlag = valid().includeRequestPayload(true).build();
-    LogContext differentPayload = valid().originPayload(new Object()).build();
+    // 게이팅을 켠 상태에서 payload 만 다른 두 컨텍스트. 플래그가 꺼져 있으면 양쪽 다
+    // requestPayload 가 null 이라 단정이 무의미해진다.
+    LogContext withPayload = valid().includeRequestPayload(true).payload("REQUEST-BODY").build();
+    LogContext withOtherPayload = valid().includeRequestPayload(true).payload(new Object()).build();
 
     assertThat(a, is(b));
     assertThat(a.hashCode(), is(b.hashCode()));
@@ -288,7 +296,7 @@ public class LogContextTestCase {
     assertThat(a, is(not(differentCorrelationId)));
     assertThat(a, is(not(differentSourceApp)));
     assertThat(a, is(not(differentFlag)));
-    assertThat("원본 메시지는 비교 대상이 아니다", a, is(differentPayload));
+    assertThat("원본 메시지는 비교 대상이 아니다", withPayload, is(withOtherPayload));
   }
 
   /**
@@ -296,12 +304,16 @@ public class LogContextTestCase {
    * 요청 본문 전체가 로그에 쏟아지면 용량 문제와 민감정보 노출로 이어진다.
    */
   @Test
-  public void toStringDoesNotLeakOriginPayloadContent() {
+  public void toStringDoesNotLeakRequestPayloadContent() {
     String secret = "password=hunter2";
-    String rendered = valid().originPayload(secret).build().toString();
+    String rendered = valid()
+        .payload(secret)
+        .includeRequestPayload(true)
+        .build()
+        .toString();
 
     assertThat(rendered, not(containsString(secret)));
-    assertThat(rendered, containsString("originPayload=<String>"));
+    assertThat(rendered, containsString("requestPayload=<String>"));
     assertThat(rendered, containsString("actor='SFDC'"));
   }
 

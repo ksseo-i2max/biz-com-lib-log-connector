@@ -12,7 +12,7 @@ Scope 와 Operation 두 형태를 제공합니다.
 | | |
 |---|---|
 | 좌표 | `org.mycompany:biz-com-lib-log-connector` |
-| 현재 버전 | `1.0.8-SNAPSHOT` (`pom.xml`, `README.md` 두 곳) |
+| 현재 버전 | `1.1.0-SNAPSHOT` (`pom.xml`, `README.md` 두 곳) |
 | 타깃 | Mule Runtime 4.9.17 / JDK 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
 | XML prefix | `biz-log` |
@@ -100,14 +100,18 @@ error/LogErrorType        BIZ-LOG:INVALID_CONTEXT, BIZ-LOG:EXECUTION
 - **payload pass-through.** Scope 는 `#[payload]` 기본값 파라미터로 원본 payload 와
   media type 을 받아 되돌려줍니다. `Chain.process` 에 임의 payload 를 넣으면 사용자
   데이터가 조용히 사라집니다.
-- **`LogContext.toString()` 은 원본 payload 값을 찍지 않습니다** (`originPayload=<String>`).
+- **`LogContext.toString()` 은 원본 payload 값을 찍지 않습니다** (`requestPayload=<String>`).
   로그로 흘러가는 객체라 요청 본문 전체가 쏟아지면 용량 / 민감정보 문제가 됩니다.
   테스트로 고정돼 있습니다.
-- **`equals`/`hashCode` 에서 `originPayload` / `originAttributes` / `requestPayload` 제외.**
+- **`equals`/`hashCode` 에서 `requestPayload` / `originAttributes` 제외.**
   사용자의 임의 객체라 identity 기반 `equals` 인 경우가 많아 포함시키면 논리적으로 같은
   컨텍스트도 거의 항상 다르다고 판정됩니다.
-- **`requestPayload` 는 `build()` 에서 `originPayload` 로부터 파생.** 직접 넣는 setter 가
-  없어 플래그와 값이 어긋날 수 없습니다.
+- **`requestPayload` 는 `build()` 에서 `Builder.payload` 를 플래그로 게이팅해 만듭니다.**
+  직접 넣는 setter 가 없어 플래그와 값이 어긋날 수 없습니다.
+- **`originPayload` 는 1.1.0 에서 제거했습니다** (사용자 요청). `requestPayload` 와 내용이
+  같으면서 게이팅이 없어, 플래그를 꺼도 요청 본문이 컨텍스트에 남는 것이 이유였습니다.
+  되살리지 마세요 — `includeRequestPayload` 가 요청 본문 기록 여부의 유일한 스위치라는
+  것이 현재 설계입니다. `originAttributes` 는 그대로 남아 있고 게이팅이 없습니다.
 - **`startTime` 은 `LocalDateTime.now(ZoneOffset.UTC)`.** `LOG_TIME_ZONE` 상수 한 곳에서
   관리합니다. `OffsetDateTime` 으로 바꿨다가(`79ebe94`) 사용자 요청으로 되돌렸습니다
   (`283c0ac`) — JDBC 가 오프셋 없는 `TIMESTAMP` 로 바인딩되는 쪽을 택했습니다. 대가는
@@ -157,8 +161,8 @@ includeResponsePayload  필수 — 기본값 없음
   pass-through 동작이 깨지며, 에러 경로에서는 attributes 를 실을 수 없습니다.
 - **`responsePayload`** — `includeResponsePayload` 플래그만 전달되고 값은 채워지지
   않습니다. `endTime` 과 같은 제약입니다.
-- **`requestPayload` vs `originPayload` 중복** — 내용이 같고 게이팅 여부만 다릅니다.
-  정리 옵션을 README 에 적어 뒀습니다.
+- ~~**`requestPayload` vs `originPayload` 중복**~~ — 1.1.0 에서 `originPayload` 제거로
+  해소했습니다.
 - **`startTime` UTC 테스트의 한계** — `LocalDateTime` 에는 검사할 오프셋이 없어 UTC 기준
   범위 비교만 합니다. 로컬 타임존이 UTC 인 CI 머신에서는 회귀를 놓칩니다.
 - **DB 컬럼 타입 미확인** — `MULE_BIZ_INTERFACE_LOG` 의 실제 스키마를 본 적 없습니다.

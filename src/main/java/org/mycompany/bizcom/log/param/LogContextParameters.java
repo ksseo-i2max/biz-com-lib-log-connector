@@ -58,8 +58,10 @@ public class LogContextParameters {
    * {@code true} 면 컴포넌트 진입 직전 payload 가 {@code attributes.requestPayload} 로
    * 실린다. {@code false} 면 그 항목이 {@code null} 이다.
    *
-   * <p>기본값을 {@code false} 로 둔 이유: 요청 본문을 로그 컨텍스트에 담는 것은 용량과
-   * 민감정보 노출 비용이 있는 선택이므로, 명시적으로 켜야 담기게 했다.
+   * <p>요청 본문을 로그 컨텍스트에 담는 것은 용량과 민감정보 노출 비용이 있는 선택이므로
+   * 기본값 없이 <b>필수</b>로 두어 매번 명시하게 했다. 1.1.0 에서 게이팅 없이 항상 담기던
+   * {@code originPayload} 를 제거했으므로, 이 플래그가 요청 본문이 컨텍스트에 남는지를
+   * 결정하는 <b>유일한</b> 스위치다.
    */
   @Parameter
   @DisplayName("Include Request Payload")
