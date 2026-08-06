@@ -127,6 +127,19 @@ public class LoggingContextScopeFunctionalTestCase extends MuleArtifactFunctiona
         is("v1|MULE_BIZ_INTERFACE_LOG|API|SFDC|biz-com-exp-listener|SUCCESS"));
   }
 
+  /**
+   * 스코프 안에서 {@code vars} 로 옮긴 컨텍스트는 스코프를 빠져나온 뒤에도 유효해야 한다.
+   *
+   * <p>1.2.0 에서 제거한 {@code build-context} + {@code target} 을 이 패턴이 대체하므로,
+   * 이 단정이 깨지면 대체가 성립하지 않는다.
+   */
+  @Test
+  public void contextVarSurvivesScopeExit() throws Exception {
+    CoreEvent event = flowRunner("scopeContextVarSurvivesScopeExit").run();
+
+    assertThat(event.getMessage().getPayload().getValue(), is("TB_IF_LOG|scheduler|FAIL"));
+  }
+
   @Test
   public void rejectsBlankParameterWithInvalidContext() throws Exception {
     CoreEvent event = flowRunner("scopeRejectsBlankParameter").run();

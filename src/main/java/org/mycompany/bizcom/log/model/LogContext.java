@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.mule.sdk.api.exception.ModuleException;
-import org.mycompany.bizcom.log.BizComLogConfiguration;
 import org.mycompany.bizcom.log.error.LogErrorType;
 import org.mycompany.bizcom.log.param.LogContextParameters;
 import org.mycompany.bizcom.log.param.LogTargetParameters;
@@ -20,13 +19,14 @@ import org.mycompany.bizcom.log.param.TriggerType;
  * 로그 대상 정보 2개, 컨텍스트 파라미터 5개, 시각 1개, correlationId, sourceAppName,
  * 원본 메시지 2개({@code requestPayload} / {@code originAttributes})를 합친 로그 컨텍스트.
  *
- * <p>Scope 에서는 메시지의 <b>attributes</b> 로, Operation 에서는 {@code target} 을 통해
- * <b>flow variable</b> 로 실려 나간다. 두 경로 모두 동일한 타입이므로 DataWeave 접근
- * 경로의 모양이 같다.
+ * <p>{@code logging-context} Scope 가 메시지의 <b>attributes</b> 로 실어 보낸다.
+ * 메시지를 교체하는 컴포넌트를 지나면 attributes 는 소실되므로, 스코프 첫 줄에서 flow
+ * variable 로 옮겨 두면 이후에도 같은 객체를 참조할 수 있다.
  *
  * <pre>
- *   Scope     : #[attributes.actor], #[attributes.startTime], #[attributes.correlationId]
- *   Operation : #[vars.ctx.actor],   #[vars.ctx.startTime],   #[vars.ctx.correlationId]
+ *   attributes 직접 : #[attributes.actor], #[attributes.startTime]
+ *   var 로 옮긴 뒤  : #[vars.ctx.actor],   #[vars.ctx.startTime]
+ *                    ({@code <set-variable variableName="ctx" value="#[attributes]"/>})
  * </pre>
  *
  * <p><b>{@code startTime}</b> 은 컨텍스트 생성 시각이며 <b>UTC 기준</b>이다. 빌더에서
@@ -116,23 +116,13 @@ public class LogContext implements Serializable {
   }
 
   /**
-   * Operation({@code build-context}) 경로 — 로그 대상 정보를 Configuration 에서 가져온다.
+   * Scope({@code logging-context}) 경로 — Scope 는 config 에 바인딩될 수 없으므로
+   * 로그 대상 정보를 자체 파라미터로 받는다. 자세한 이유는
+   * {@link LogTargetParameters} 참고.
    *
    * <p>완성된 컨텍스트가 아니라 {@link Builder} 를 돌려준다. 호출측이 correlationId,
    * 원본 메시지 등 남은 값을 이어 붙이고 {@link Builder#build()} 하면 된다. 인자 목록이
    * 계속 늘어나는 것을 막기 위한 구조다.
-   */
-  public static Builder from(BizComLogConfiguration config, LogContextParameters params) {
-    return builder()
-        .flowVersion(config.getFlowVersion())
-        .baseTableName(config.getBaseTableName())
-        .from(params);
-  }
-
-  /**
-   * Scope({@code logging-context}) 경로 — Scope 는 config 에 바인딩될 수 없으므로
-   * 로그 대상 정보를 자체 파라미터로 받는다. 자세한 이유는
-   * {@link LogTargetParameters} 참고.
    */
   public static Builder from(LogTargetParameters target, LogContextParameters params) {
     return builder()

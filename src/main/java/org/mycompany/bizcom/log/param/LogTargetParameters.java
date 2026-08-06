@@ -18,10 +18,9 @@ import org.mule.sdk.api.annotation.param.display.Summary;
  *   Scope 'loggingContext' requires a config, but that is not allowed, remove such parameter
  * </pre>
  *
- * <p>따라서 Scope 는 {@link org.mycompany.bizcom.log.BizComLogConfiguration} 의 값을
- * 읽을 수 없고, 두 값을 자체 파라미터로 받는다. {@code flowVersion} 은 Configuration 과
- * 동일하게 기본값 {@code "v1"} 을 가지므로 생략할 수 있다. 앱마다 다른 값을 한 번만
- * 정하고 싶다면 Mule 의 property placeholder 를 쓰면 된다.
+ * <p>따라서 Scope 는 configuration 의 값을 읽을 수 없고, 두 값을 자체 파라미터로 받는다.
+ * 둘 다 기본값({@code "v1"} / {@code "MULE_BIZ_INTERFACE_LOG"})이 있어 생략할 수 있다.
+ * 앱마다 다른 값을 한 번만 정하고 싶다면 Mule 의 property placeholder 를 쓰면 된다.
  *
  * <pre>{@code
  * <biz-log:logging-context baseTableName="TB_IF_LOG"
@@ -32,8 +31,8 @@ import org.mule.sdk.api.annotation.param.display.Summary;
  *                       triggerType="BATCH" ... >
  * }</pre>
  *
- * <p>Configuration 은 {@code <biz-log:build-context>} Operation 경로에서 그대로 쓰인다.
- * (Operation 은 config 바인딩이 허용된다.)
+ * <p>1.2.0 에서 {@code build-context} Operation 과 {@code BizComLogConfiguration} 을
+ * 제거했으므로, 이 클래스가 두 값을 받는 <b>유일한</b> 경로다.
  */
 public class LogTargetParameters {
 

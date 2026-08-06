@@ -2,10 +2,10 @@ package org.mycompany.bizcom.log;
 
 import static org.mule.sdk.api.meta.JavaVersion.JAVA_17;
 
-import org.mule.sdk.api.annotation.Configurations;
 import org.mule.sdk.api.annotation.Export;
 import org.mule.sdk.api.annotation.Extension;
 import org.mule.sdk.api.annotation.JavaVersionSupport;
+import org.mule.sdk.api.annotation.Operations;
 import org.mule.sdk.api.annotation.dsl.xml.Xml;
 import org.mule.sdk.api.annotation.error.ErrorTypes;
 import org.mycompany.bizcom.log.error.LogErrorType;
@@ -25,13 +25,20 @@ import org.mycompany.bizcom.log.param.TriggerType;
  * {@code {JAVA_17, JAVA_21}} 로 확장하면 된다.
  *
  * <p>{@code @Export} 는 {@link LogContext} 와 두 enum 을 앱 클래스로더에 노출한다.
- * 이것이 없으면 {@code vars.ctx} 를 {@code ee:transform} 에서 다룰 때, 또는 VM connector /
+ * 이것이 없으면 컨텍스트를 {@code ee:transform} 에서 다룰 때, 또는 VM connector /
  * persistent object store 를 경유할 때 {@code ClassNotFoundException} 이 발생한다.
+ *
+ * <p><b>Configuration 이 없다.</b> 1.2.0 에서 {@code build-context} Operation 을 제거하면서
+ * 유일한 소비자를 잃은 {@code BizComLogConfiguration} 도 함께 삭제했다. 남은 컴포넌트인
+ * {@code logging-context} 는 Scope 라 SDK 가 config 바인딩을 금지하므로, config 를 두면
+ * DSL 에 쓰이지 않는 {@code <biz-log:config>} 요소만 남는다. {@code @Operations} 를
+ * extension 에 직접 달면 SDK 가 암시적 기본 configuration 을 만들어 주므로
+ * {@code config-ref} 없이 동작한다.
  */
 @Extension(name = "Biz Com Log")
 @Xml(prefix = "biz-log")
 @JavaVersionSupport({JAVA_17})
-@Configurations(BizComLogConfiguration.class)
+@Operations(BizComLogOperations.class)
 @ErrorTypes(LogErrorType.class)
 @Export(classes = {LogContext.class, TriggerType.class, Status.class})
 public class BizComLogExtension {

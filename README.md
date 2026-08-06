@@ -8,7 +8,7 @@
 | Mule Runtime | 4.9.17 |
 | JDK | 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
-| 현재 버전 | `1.1.0-SNAPSHOT` |
+| 현재 버전 | `1.2.0-SNAPSHOT` |
 | XML prefix | `biz-log` |
 | Base package | `org.mycompany.bizcom.log` |
 
@@ -24,7 +24,7 @@
 
 ## 제공 컴포넌트
 
-### 1. Scope — Logging Context (`<biz-log:logging-context>`)
+**Scope — Logging Context (`<biz-log:logging-context>`) 하나입니다.**
 
 컨텍스트를 메시지 **attributes** 로 주입한 상태로 하위 컴포넌트를 실행합니다.
 
@@ -63,48 +63,24 @@
 <!-- v1 / MULE_BIZ_INTERFACE_LOG / API / SFDC / biz-com-exp-listener / SUCCESS -->
 ```
 
-### 2. Configuration + Operation — Build Context (`<biz-log:build-context>`)
-
-Operation 은 config 바인딩이 허용되므로, 이 경로에서는 두 값을 Configuration 에서 가져옵니다.
-
-```xml
-<!-- 두 값 모두 기본값이 있어 이름만 주면 됩니다 -->
-<biz-log:config name="BizLog_Config"/>
-
-<!-- 다르게 쓰려면 명시 -->
-<biz-log:config name="BizLog_Config_V2"
-                flowVersion="v2"
-                baseTableName="MULE_BIZ_INTERFACE_LOG_HIST"/>
-```
-
-두 파라미터 모두 기본값(`v1` / `MULE_BIZ_INTERFACE_LOG`)이 있어 생략 가능합니다.
-단, 빈 문자열을 명시하면 `BIZ-LOG:INVALID_CONTEXT` 로 거부됩니다.
-
-`target` 과 함께 쓰면 **진짜 flow variable** 이 되어 메시지가 교체되어도 살아남습니다.
-
-```xml
-<flow name="varStyleFlow">
-  <biz-log:build-context config-ref="BizLog_Config"
-      triggerType="BATCH" actor="SFDC"
-      targetAppName="SAP" status="FAIL"
-      target="ctx"/>
-
-  <http:request .../>                      <!-- 메시지 교체됨 -->
-  <logger message="#[vars.ctx.actor]"/>    <!-- 여전히 유효 -->
-  <flow-ref name="businessFlow"/>
-</flow>
-```
+> **1.2.0 에서 `<biz-log:build-context>` Operation 과 `<biz-log:config>` 가 제거됐습니다.**
+> 컨텍스트를 flow variable 로 남기려면 아래 "메시지 교체 후에도 쓰려면" 절처럼 스코프
+> 첫 줄에 `<set-variable>` 한 줄을 넣으세요. Operation 이 제공하던 것과 동일한 결과입니다.
+> 커넥터에 configuration 이 없으므로 `config-ref` 를 쓰는 요소도 없습니다.
 
 ## 파라미터
 
-### 로그 대상 (Scope 파라미터 / Configuration)
+### 로그 대상 (Scope 파라미터)
 
 | 파라미터 | 기본값 | 설명 |
 |---|---|---|
 | `flowVersion` | `v1` | 로그 스키마 / 플로우 버전 식별자 |
 | `baseTableName` | `MULE_BIZ_INTERFACE_LOG` | 로그가 기록될 기준 테이블명 |
 
-### 컨텍스트 (Scope / Operation 공통)
+둘 다 기본값이 있어 생략 가능합니다. 단, 빈 문자열을 명시하면
+`BIZ-LOG:INVALID_CONTEXT` 로 거부됩니다.
+
+### 컨텍스트
 
 | 파라미터 | 타입 | 기본값 | 값 |
 |---|---|---|---|
@@ -157,12 +133,12 @@ Mule SDK 에서 이 둘은 **동시에 성립하지 않습니다.** `@Optional(d
 
 ## 컨텍스트에 실리는 항목
 
-`attributes` (Scope) 또는 `vars.<target>` (Operation) 으로 아래 13개가 노출됩니다.
+`attributes` 로 아래 13개가 노출됩니다.
 
 | 항목 | 타입 | 출처 |
 |---|---|---|
-| `flowVersion` | String | 파라미터 / Configuration (기본 `v1`) |
-| `baseTableName` | String | 파라미터 / Configuration (기본 `MULE_BIZ_INTERFACE_LOG`) |
+| `flowVersion` | String | 파라미터 (기본 `v1`) |
+| `baseTableName` | String | 파라미터 (기본 `MULE_BIZ_INTERFACE_LOG`) |
 | `triggerType` | `TriggerType` | 파라미터 (기본 `API`) |
 | `actor` | String | 파라미터 (기본 `SFDC`) |
 | `sourceAppName` | String | **커넥터가 `app.name` 프로퍼티에서 자동 기록** (DSL 파라미터 아님) |
@@ -309,20 +285,39 @@ Scope 는 attributes 를 로그 컨텍스트로 **교체**하므로, 원래 attr
 > 민감정보 노출로 이어지기 때문입니다. DB 에 기록할 때는 `toMap()` 이 원본 객체를 그대로
 > 주므로 마스킹 여부를 호출측에서 결정하세요.
 
-## 어느 쪽을 쓸지
+## 메시지 교체 후에도 쓰려면
 
-| | 로그 대상 정보 출처 | 접근 | 메시지 교체 후 생존 |
-|---|---|---|---|
-| Scope | Scope 파라미터 (`${...}` 권장) | `#[attributes.actor]` | ❌ |
-| Operation + `target` | Configuration (`config-ref`) | `#[vars.ctx.actor]` | ✅ |
+| 접근 방법 | 메시지 교체 후 생존 | 스코프 밖에서 생존 |
+|---|---|---|
+| `#[attributes.actor]` | ❌ | ❌ |
+| `<set-variable>` 후 `#[vars.ctx.actor]` | ✅ | ✅ |
 
 스코프 안에서 메시지를 교체하는 컴포넌트(HTTP Request, DB Select, Transform 등)를
-지나면 attributes 는 소실됩니다. 그런 경우 Operation 을 쓰거나, 스코프 첫 줄에
-아래 한 줄을 넣으세요.
+지나면 attributes 는 소실됩니다. 스코프 첫 줄에 아래 한 줄을 넣어 flow variable 로
+옮겨 두세요.
 
 ```xml
-<set-variable variableName="ctx" value="#[attributes]"/>
+<flow name="loggedFlow">
+  <biz-log:logging-context flowVersion="${biz.log.flowVersion}"
+      baseTableName="${biz.log.baseTableName}"
+      triggerType="API" actor="SFDC"
+      targetAppName="biz-com-exp-listener" status="SUCCESS"
+      includeRequestPayload="true" includeResponsePayload="false">
+
+    <set-variable variableName="ctx" value="#[attributes]"/>   <!-- 이 한 줄 -->
+
+    <http:request .../>                                <!-- attributes 소실 -->
+    <logger message="#[vars.ctx.actor]"/>              <!-- 여전히 유효 -->
+    <logger message="#[vars.ctx.requestPayload]"/>     <!-- 원본 요청 본문 -->
+  </biz-log:logging-context>
+
+  <logger message="#[vars.ctx.baseTableName]"/>        <!-- 스코프 밖에서도 유효 -->
+</flow>
 ```
+
+flow variable 은 스코프를 빠져나와도 유지되므로, 1.1.0 의
+`build-context` + `target` 조합과 결과가 같습니다. 그것이 1.2.0 에서 Operation 을
+제거한 이유입니다.
 
 ### 왜 Scope 가 직접 variable 을 세팅하지 않는가
 
@@ -331,7 +326,11 @@ Mule SDK 의 `Chain` 인터페이스는 `process(payload, attributes, …)` 만 
 `org.mule.runtime.core.*` 를 요구하는데 이 패키지는 extension 클래스로더에 export
 되지 않고, privileged API 허용 아티팩트 목록은 런타임 배포본에 고정되어 있어
 서드파티 커넥터가 접근할 수 없습니다. 리플렉션 우회는 4.x 마이너 업그레이드마다
-깨지므로 채택하지 않았습니다. 이것이 Scope + Operation 하이브리드 구성의 이유입니다.
+깨지므로 채택하지 않았습니다.
+
+1.1.0 까지는 이 제약을 `build-context` Operation + `target` 으로 우회했지만,
+사용자가 `<set-variable>` 한 줄로 같은 결과를 얻을 수 있어 컴포넌트를 하나로
+줄였습니다.
 
 ## 에러 타입
 
@@ -348,7 +347,7 @@ Scope **내부**에서 발생한 예외는 감싸지 않고 원본 에러 타입
 mvn clean install
 ```
 
-단위 테스트 6개가 함께 실행됩니다 (`LogContextTestCase` — Mule 컨테이너 불필요).
+단위 테스트 15개가 함께 실행됩니다 (`LogContextTestCase` — Mule 컨테이너 불필요).
 
 ### functional test 는 별도 실행이 필요합니다
 
@@ -418,6 +417,34 @@ mvn verify -Pfunctional-tests
 `#[attributes.originPayload]` / `#[vars.ctx.originPayload]` 를 쓰던 앱은 고쳐야 합니다
 (`includeRequestPayload="true"` + `requestPayload`).
 
+**1.1.0 → 1.2.0** 도 그렇습니다. `<biz-log:build-context>` Operation 과
+`<biz-log:config>` Configuration 을 제거했으므로 둘 중 하나라도 쓰던 앱은 기동하지
+못합니다. 마이그레이션은 아래 한 가지입니다.
+
+```xml
+<!-- 1.1.0 -->
+<biz-log:config name="BizLog_Config" flowVersion="v1" baseTableName="TB_IF_LOG"/>
+...
+<biz-log:build-context config-ref="BizLog_Config"
+    triggerType="API" actor="SFDC" targetAppName="SAP"
+    status="SUCCESS" includeRequestPayload="true" includeResponsePayload="false"
+    target="ctx"/>
+<http:request .../>
+<logger message="#[vars.ctx.actor]"/>
+
+<!-- 1.2.0 — config 요소를 지우고 스코프로 감쌉니다 -->
+<biz-log:logging-context flowVersion="v1" baseTableName="TB_IF_LOG"
+    triggerType="API" actor="SFDC" targetAppName="SAP"
+    status="SUCCESS" includeRequestPayload="true" includeResponsePayload="false">
+
+  <set-variable variableName="ctx" value="#[attributes]"/>
+  <http:request .../>
+  <logger message="#[vars.ctx.actor]"/>
+</biz-log:logging-context>
+```
+
+`#[vars.ctx.*]` 표현식은 그대로 둬도 됩니다 — 담기는 객체가 같은 `LogContext` 입니다.
+
 버전은 `pom.xml` 과 이 README 두 곳에 있습니다 (`.idea/` 는 IDE 생성물이라 gitignore 대상).
 
 ## Mule 앱에서 사용
@@ -426,7 +453,7 @@ mvn verify -Pfunctional-tests
 <dependency>
   <groupId>org.mycompany</groupId>
   <artifactId>biz-com-lib-log-connector</artifactId>
-  <version>1.1.0-SNAPSHOT</version>
+  <version>1.2.0-SNAPSHOT</version>
   <classifier>mule-plugin</classifier>
 </dependency>
 ```

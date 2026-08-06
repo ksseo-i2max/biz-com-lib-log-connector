@@ -7,7 +7,6 @@ import javax.inject.Inject;
 import org.mule.runtime.api.component.ConfigurationProperties;
 import org.mule.runtime.api.metadata.TypedValue;
 import org.mule.sdk.api.annotation.error.Throws;
-import org.mule.sdk.api.annotation.param.Config;
 import org.mule.sdk.api.annotation.param.MediaType;
 import org.mule.sdk.api.annotation.param.Optional;
 import org.mule.sdk.api.annotation.param.ParameterGroup;
@@ -24,7 +23,13 @@ import org.mycompany.bizcom.log.param.LogContextParameters;
 import org.mycompany.bizcom.log.param.LogTargetParameters;
 
 /**
- * 커넥터가 제공하는 컴포넌트 2종.
+ * 커넥터가 제공하는 컴포넌트.
+ *
+ * <p>1.2.0 부터 {@code logging-context} Scope 하나뿐이다. 컨텍스트 객체를 반환하던
+ * {@code build-context} Operation 은 제거했다 — 스코프 첫 줄의
+ * {@code <set-variable variableName="ctx" value="#[attributes]"/>} 로 동일한 flow
+ * variable 을 만들 수 있어 기능이 겹쳤고, Operation 만을 위한 Configuration 을
+ * 유지해야 했기 때문이다.
  *
  * <p>모든 타입은 {@code org.mule.sdk.api.*} 로 통일했다. 하나의 메서드 시그니처 안에서
  * {@code sdk-api} 와 구 {@code extensions-api} 타입을 섞으면 SDK 가 extension model
@@ -90,9 +95,9 @@ public class BizComLogOperations {
    * {@code attributes.originAttributes} 에서 꺼내 쓴다.
    *
    * <p><b>주의:</b> 스코프 안에서 메시지를 교체하는 컴포넌트(HTTP Request, DB Select,
-   * Transform 등)를 지나면 attributes 는 소실된다. 그런 경우
-   * {@code build-context} 를 {@code target} 과 함께 쓰거나, 스코프 첫 줄에
-   * {@code <set-variable variableName="ctx" value="#[attributes]"/>} 를 넣는다.
+   * Transform 등)를 지나면 attributes 는 소실된다. 스코프 첫 줄에
+   * {@code <set-variable variableName="ctx" value="#[attributes]"/>} 를 넣어 flow
+   * variable 로 옮겨 두면 메시지 교체 후에도, 스코프를 빠져나온 뒤에도 유효하다.
    */
   @DisplayName("Logging Context")
   @Summary("로그 컨텍스트를 attributes 로 주입한 상태로 하위 컴포넌트를 실행한다")
@@ -136,52 +141,6 @@ public class BizComLogOperations {
         input,
         result -> callback.success(asObjectResult(result)),
         (throwable, result) -> callback.error(throwable));
-  }
-
-  /**
-   * <b>Operation</b> — 로그 컨텍스트를 만들어 반환한다. {@code target} 과 함께 쓰면
-   * 진짜 flow variable 이 되어 메시지가 교체되어도 살아남는다.
-   *
-   * <p>Operation 은 config 바인딩이 허용되므로 이 경로에서는 {@code flowVersion} /
-   * {@code baseTableName} 을 Configuration 에서 가져온다.
-   *
-   * <pre>{@code
-   * <biz-log:build-context config-ref="BizLog_Config"
-   *     triggerType="BATCH" actor="scheduler"
-   *     targetAppName="SAP" status="FAIL"
-   *     target="ctx"/>
-   *
-   * <http:request .../>                    <!-- 메시지 교체됨 -->
-   * <logger message="#[vars.ctx.actor]"/>  <!-- 여전히 유효 -->
-   * }</pre>
-   *
-   * <p>{@code @MediaType} 을 붙이지 않은 것은 의도된 것이다. POJO 를 반환하면 SDK 가
-   * {@code application/java} 로 추론한다. ({@code sdk-api} 의 {@code MediaType} 에는
-   * {@code APPLICATION_JAVA} 상수가 없다. 해당 애노테이션은 {@code String} /
-   * {@code InputStream} 을 반환할 때만 필수다.)
-   */
-  @DisplayName("Build Context")
-  @Summary("로그 컨텍스트 객체를 생성한다. target 과 함께 쓰면 flow variable 로 저장된다")
-  @Throws(LogErrorProvider.class)
-  public LogContext buildContext(@Config BizComLogConfiguration config,
-                                 @ParameterGroup(name = CONTEXT_GROUP) LogContextParameters params,
-                                 @Optional(defaultValue = Optional.PAYLOAD)
-                                 @Summary("includeRequestPayload 가 켜져 있으면"
-                                     + " requestPayload 로 기록할 payload."
-                                     + " 기본값은 현재 payload 다.")
-                                 TypedValue<Object> payload,
-                                 @Optional(defaultValue = CURRENT_ATTRIBUTES)
-                                 @Summary("originAttributes 로 기록할 attributes."
-                                     + " 기본값은 현재 attributes 다.")
-                                 TypedValue<Object> originAttributes,
-                                 CorrelationInfo correlationInfo,
-                                 StreamingHelper streamingHelper) {
-    return LogContext.from(config, params)
-        .sourceAppName(resolveSourceAppName())
-        .correlationId(correlationIdOf(correlationInfo))
-        .payload(streamingHelper.resolveCursorProvider(valueOf(payload)))
-        .originAttributes(valueOf(originAttributes))
-        .build();
   }
 
   /**

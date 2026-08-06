@@ -160,6 +160,30 @@
     </biz-log:logging-context>
   </flow>
 
+  <!--
+    (11) 스코프 안에서 vars 로 옮긴 컨텍스트가 스코프를 빠져나온 뒤에도 유효한지.
+         1.2.0 에서 제거한 build-context + target 을 이 패턴이 대체하므로,
+         "스코프 밖 생존" 이 성립해야 대체가 성립한다.
+  -->
+  <flow name="scopeContextVarSurvivesScopeExit">
+    <biz-log:logging-context flowVersion="v1"
+                          baseTableName="TB_IF_LOG"
+                          triggerType="BATCH"
+                          actor="scheduler"
+                          targetAppName="SAP"
+                          status="FAIL" includeRequestPayload="false" includeResponsePayload="false">
+      <set-variable variableName="ctx" value="#[attributes]"/>
+      <set-payload value="#[{ replaced: true }]"/>
+    </biz-log:logging-context>
+
+    <!-- 스코프 밖. attributes 는 이미 컨텍스트가 아니지만 vars.ctx 는 남아 있어야 한다. -->
+    <set-payload value="#[
+      vars.ctx.baseTableName ++ '|' ++
+      vars.ctx.actor ++ '|' ++
+      vars.ctx.status
+    ]"/>
+  </flow>
+
   <!-- (10) 공백 파라미터 -> BIZ-LOG:INVALID_CONTEXT -->
   <flow name="scopeRejectsBlankParameter">
     <biz-log:logging-context flowVersion=" "

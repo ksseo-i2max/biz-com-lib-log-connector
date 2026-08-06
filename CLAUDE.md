@@ -7,12 +7,12 @@
 
 Mule 4 커스텀 커넥터. 로그 컨텍스트(플로우 버전, 테이블명, 트리거 종류, 작업 주체, 출발 /
 대상 앱, 처리 결과, correlation id, 시각, 원본 메시지)를 Mule 이벤트에 주입합니다.
-Scope 와 Operation 두 형태를 제공합니다.
+**컴포넌트는 `logging-context` Scope 하나입니다** (1.2.0 에서 Operation 제거).
 
 | | |
 |---|---|
 | 좌표 | `org.mycompany:biz-com-lib-log-connector` |
-| 현재 버전 | `1.1.0-SNAPSHOT` (`pom.xml`, `README.md` 두 곳) |
+| 현재 버전 | `1.2.0-SNAPSHOT` (`pom.xml`, `README.md` 두 곳) |
 | 타깃 | Mule Runtime 4.9.17 / JDK 17 |
 | Parent | `org.mule.extensions:mule-modules-parent:1.9.17` |
 | XML prefix | `biz-log` |
@@ -52,10 +52,10 @@ MuleSoft public 리포지터리가 등록되어 있어야 합니다.
 
 ```
 BizComLogExtension        @Extension @Xml(biz-log) @JavaVersionSupport(JAVA_17) @Export
-BizComLogConfiguration    flowVersion / baseTableName  → build-context Operation 전용
-BizComLogOperations       loggingContext(Scope) + buildContext(Operation)
-param/LogTargetParameters flowVersion / baseTableName  → Scope 전용 (아래 이유 참고)
-param/LogContextParameters 공유 컨텍스트 파라미터 (@ParameterGroup)
+                          @Operations 를 extension 에 직접 — Configuration 없음
+BizComLogOperations       loggingContext(Scope) 하나
+param/LogTargetParameters flowVersion / baseTableName  → Scope 파라미터
+param/LogContextParameters 컨텍스트 파라미터 (@ParameterGroup)
 param/TriggerType         API, BATCH
 param/Status              SUCCESS, FAIL
 model/LogContext          Serializable, Builder 패턴, 검증은 build() 한 곳
@@ -74,7 +74,8 @@ error/LogErrorType        BIZ-LOG:INVALID_CONTEXT, BIZ-LOG:EXECUTION
 | `sdk-api` 의 `MediaType` 에 `APPLICATION_JAVA` 상수가 **없다** | POJO 반환 Operation 은 `@MediaType` 생략 → SDK 가 `application/java` 로 추론. 애노테이션은 `String` / `InputStream` 반환 시에만 필수 |
 | **"필수"와 "기본값"은 동시에 성립하지 않는다** | `@Optional(defaultValue=...)` 을 붙이면 스키마상 required 가 아니게 된다. 사용자가 이걸 세 번 요청했고 매번 설명이 필요했다 |
 | required primitive `boolean` 은 **허용된다** | `@Optional` 없는 `boolean` 파라미터로 모델 생성 통과 |
-| `Chain` 인터페이스에 **variable 주입 API 가 없다** | `process(payload, attributes, …)` 만 있다. Scope 는 flow variable 을 세팅할 수 없다 → Operation + `target` 하이브리드의 이유 |
+| `Chain` 인터페이스에 **variable 주입 API 가 없다** | `process(payload, attributes, …)` 만 있다. Scope 는 flow variable 을 세팅할 수 없다 → 사용자가 스코프 첫 줄에 `<set-variable value="#[attributes]"/>` 를 넣는다 |
+| `@Operations` 를 **extension 클래스에 직접** 달면 Configuration 없이 빌드된다 | SDK 가 암시적 기본 config 를 만든다. 1.2.0 에서 실증 — 생성된 `biz-com-log-extension-descriptions.xml` 에 `loggingContext` 만 있고 `<configuration>` 요소는 없다 |
 | Mule 4 는 XSD 를 **런타임에 생성**한다 | 빌드 산출물에 스키마가 없다 |
 
 주입 가능한 것들 (모두 검증됨):
@@ -91,9 +92,13 @@ error/LogErrorType        BIZ-LOG:INVALID_CONTEXT, BIZ-LOG:EXECUTION
 
 ## 의도된 설계 — "고치지" 마세요
 
-- **Scope + Operation 하이브리드.** Scope 는 attributes 로, Operation 은 `target` 으로
-  flow variable 을 만듭니다. Scope 의 attributes 는 메시지를 교체하는 컴포넌트를 지나면
-  소실되므로 두 경로가 다 필요합니다.
+- **Scope 단일 컴포넌트 (1.2.0).** `build-context` Operation 과 `BizComLogConfiguration`
+  을 제거했습니다 (사용자 요청). Scope 의 attributes 는 메시지를 교체하는 컴포넌트를
+  지나면 소실되지만, 스코프 첫 줄의 `<set-variable variableName="ctx"
+  value="#[attributes]"/>` 가 Operation + `target` 과 동일한 flow variable 을 만들고
+  스코프를 빠져나온 뒤에도 유지됩니다 — 두 경로가 기능적으로 겹쳐 하나로 줄였습니다.
+  되살리지 마세요. Configuration 을 다시 두면 Scope 는 config 를 못 받으므로 쓰이지
+  않는 `<biz-log:config>` 요소만 남습니다.
 - **에러는 감싸지 않습니다.** 체인 내부 예외를 `callback.error(throwable)` 로 그대로
   넘겨 원본 에러 타입을 유지합니다. `BIZ-LOG:*` 로 감싸면 사용자의
   `<error-handler type="HTTP:CONNECTIVITY">` 가 동작하지 않습니다.
@@ -151,8 +156,8 @@ includeResponsePayload  필수 — 기본값 없음
 - 주석 / javadoc / 커밋 메시지 본문은 **한국어**. 코드 식별자는 영어.
 - 파라미터를 추가하면 손봐야 할 곳: `LogContextParameters`(또는 `LogTargetParameters`),
   `LogContext`(필드 / 생성자 / getter / builder / `from(params)` / `toMap` / `equals` /
-  `hashCode` / `toString`), 단위 테스트의 `toMap` 키 순서 단정, functional test XML 2개,
-  `README.md`, 버전.
+  `hashCode` / `toString`), 단위 테스트의 `toMap` 키 순서 단정,
+  `biz-log-scope-test.xml`, `README.md`, 버전.
 
 ## 미해결 / 보류
 
